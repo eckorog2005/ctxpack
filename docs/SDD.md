@@ -1,16 +1,16 @@
-# ctxpack: Software Design Document
+# pithpack: Software Design Document
 
 | | |
 |---|---|
 | Status | Accepted, pre-implementation |
 | Date | 2026-10-27 |
-| Package / binary | `ctxpack-cli` / `ctxpack` |
+| Package / binary | `pithpack` |
 | Vocabulary | [`GLOSSARY.md`](../GLOSSARY.md); capitalised terms below (Source File, Mode, Bundle…) are defined there |
 | Decisions | [`docs/adr/`](adr/) |
 
 ## 1. Purpose
 
-Developers feeding code to LLMs pay for every token, and raw source is padded with Free Comments, whitespace, imports and implementation detail the model often doesn't need. `ctxpack` walks a set of paths, drops what must never leave the machine, compresses each Source File according to a Mode, and emits one Bundle plus a Report of how many tokens were saved.
+Developers feeding code to LLMs pay for every token, and raw source is padded with Free Comments, whitespace, imports and implementation detail the model often doesn't need. `pithpack` walks a set of paths, drops what must never leave the machine, compresses each Source File according to a Mode, and emits one Bundle plus a Report of how many tokens were saved.
 
 ### 1.1 Goals
 
@@ -94,7 +94,7 @@ The brief placed secret scrubbing in `scanner`. It is split into `redact` becaus
 
 ```
 .
-├── Cargo.toml                    # package ctxpack-cli, [[bin]] ctxpack
+├── Cargo.toml                    # package and binary pithpack
 ├── Cargo.lock                    # committed: this is a binary
 ├── rust-toolchain.toml           # stable + rustfmt + clippy
 ├── deny.toml                     # cargo-deny: advisories, licenses, bans, sources
@@ -167,8 +167,8 @@ The brief placed secret scrubbing in `scanner`. It is split into `redact` becaus
 ## 5. CLI specification
 
 ```
-ctxpack [OPTIONS] [PATHS]...
-ctxpack init                      # write a commented ctxpack.toml in the current directory
+pithpack [OPTIONS] [PATHS]...
+pithpack init                      # write a commented pithpack.toml in the current directory
 ```
 
 With no `PATHS` and a non-TTY stdin, stdin is read. `-` reads stdin explicitly and may be combined with paths.
@@ -210,11 +210,11 @@ With no `PATHS` and a non-TTY stdin, stdin is read. `-` reads stdin explicitly a
 ### 5.3 Examples
 
 ```sh
-ctxpack ./src                       # skeleton, XML, to stdout
-ctxpack -2 -c .                     # outline of the repo to the clipboard
-ctxpack -0 -i rs,toml -o ctx.xml .  # strip, only Rust + TOML, to a file
-git diff | ctxpack -c               # diff as Plain Text, redacted, to clipboard
-cat main.py | ctxpack --lang python # stdin as a Python Source File
+pithpack ./src                       # skeleton, XML, to stdout
+pithpack -2 -c .                     # outline of the repo to the clipboard
+pithpack -0 -i rs,toml -o ctx.xml .  # strip, only Rust + TOML, to a file
+git diff | pithpack -c               # diff as Plain Text, redacted, to clipboard
+cat main.py | pithpack --lang python # stdin as a Python Source File
 ```
 
 ### 5.4 Budget
@@ -225,12 +225,12 @@ cat main.py | ctxpack --lang python # stdin as a Python Source File
 
 ### 6.1 Layers
 
-Highest wins: CLI flags → project `ctxpack.toml` (searched from the cwd upwards, stopping at the git root) → user config (`$XDG_CONFIG_HOME/ctxpack/config.toml`, macOS `~/.config/ctxpack/config.toml`, Windows `%APPDATA%\ctxpack\config.toml`) → built-in defaults. Lists (`exclude`, `exclusion.extra`, `redaction.extra_patterns`) are *concatenated* across layers; scalars are replaced.
+Highest wins: CLI flags → project `pithpack.toml` (searched from the cwd upwards, stopping at the git root) → user config (`$XDG_CONFIG_HOME/pithpack/config.toml`, macOS `~/.config/pithpack/config.toml`, Windows `%APPDATA%\pithpack\config.toml`) → built-in defaults. Lists (`exclude`, `exclusion.extra`, `redaction.extra_patterns`) are *concatenated* across layers; scalars are replaced.
 
 ### 6.2 Schema
 
 ```toml
-# ctxpack.toml: every key optional
+# pithpack.toml: every key optional
 mode            = "skeleton"   # "strip" | "skeleton" | "outline"
 format          = "xml"        # "xml" | "markdown"
 tokenizer       = "o200k"      # "o200k" | "cl100k"
@@ -498,7 +498,7 @@ pub fn file_tree(paths: &[&str]) -> String;
 XML Bundle:
 
 ```xml
-<bundle tool="ctxpack" version="0.3.0" mode="skeleton" tokenizer="o200k_base" files="2" tokens="1834">
+<bundle tool="pithpack" version="0.3.0" mode="skeleton" tokenizer="o200k_base" files="2" tokens="1834">
 <tree>
 src/
   lib.rs
@@ -514,7 +514,7 @@ pub fn run(opts: Options, io: Io) -> Result<Outcome> { … }
 </bundle>
 ```
 
-- File content is **not** XML-escaped: LLMs read it as text, and escaping `<`/`&` in code costs tokens and readability. The one exception is a literal `</file>` inside content, which is written as `<\/file>` so a block can't close early; this is the only byte ctxpack ever alters for formatting reasons, and it is documented.
+- File content is **not** XML-escaped: LLMs read it as text, and escaping `<`/`&` in code costs tokens and readability. The one exception is a literal `</file>` inside content, which is written as `<\/file>` so a block can't close early; this is the only byte pithpack ever alters for formatting reasons, and it is documented.
 - The Bundle-level `tokens` attribute counts the whole rendered Bundle. Because the number sits inside the text it counts, `lib::run` renders, counts, then writes the number in; the attribute's own digits can shift the true total by ±2 tokens, which is accepted.
 - Markdown format uses a `## path` heading per file and a fence one backtick longer than the longest backtick run in that file (minimum 3), with the language as the info string.
 
@@ -584,7 +584,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome>;
 
 ### 9.1 Target
 
-Reference workload: `benches/gen_fixture.rs` deterministically generates 1,000 Source Files averaging 8 KiB, split evenly across Rust, Python, TypeScript and Go. Command: `ctxpack -1 -q fixture/ > /dev/null`. Measured with `hyperfine --warmup 3` on an 8-core Apple Silicon machine with a warm filesystem cache. Target: mean **< 200 ms**.
+Reference workload: `benches/gen_fixture.rs` deterministically generates 1,000 Source Files averaging 8 KiB, split evenly across Rust, Python, TypeScript and Go. Command: `pithpack -1 -q fixture/ > /dev/null`. Measured with `hyperfine --warmup 3` on an 8-core Apple Silicon machine with a warm filesystem cache. Target: mean **< 200 ms**.
 
 ### 9.2 Strategy
 
@@ -610,7 +610,7 @@ If BPE initialisation alone breaks the budget, the fallback is to pre-build the 
 | Secrets | `tests/secrets.rs` | no secret corpus string ever reaches stdout, stderr or JSON, in any Mode/format |
 | Benchmark | `hyperfine` in `bench.yml` | trend only, never blocks a PR |
 
-The clipboard is tested behind a `CTXPACK_CLIPBOARD=file:<path>` test hook so CI needs no display server.
+The clipboard is tested behind a `PITHPACK_CLIPBOARD=file:<path>` test hook so CI needs no display server.
 
 ## 11. Repository, CI and contribution flow
 
@@ -619,7 +619,7 @@ The clipboard is tested behind a `CTXPACK_CLIPBOARD=file:<path>` test hook so CI
 - **Ruleset on `main`**: PR required (0 approvals while there is a single maintainer; raise to 1 when a second joins), conversations resolved, required status check `ci-ok` with branch up to date, linear history, no force pushes, no deletion, no bypass actors.
 - **CI (`ci.yml`)**: `fmt`, `clippy -D warnings`, `test` (ubuntu, macOS arm64, Windows, via `cargo nextest`) plus doctests, `msrv` (Rust 1.85), `deny` (`cargo-deny`), `pr-title` (semantic PR title). `ci-ok` aggregates them and is the only required check, so jobs can change without editing the ruleset.
 - **Supply chain**: every action pinned to a full commit SHA; Dependabot weekly for `cargo` and `github-actions`, minor and patch updates grouped.
-- **Releases**: `cargo-dist` generates `release.yml` when the first release is cut (Phase 2). Targets: `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`. Installers: shell, PowerShell, Homebrew tap; `cargo install ctxpack-cli`. (The `ctxpack` crate name on crates.io belongs to an unrelated project.)
+- **Releases**: `cargo-dist` generates `release.yml` when the first release is cut (Phase 2). Targets: `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`, `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`. Installers: shell, PowerShell, Homebrew tap; `cargo install pithpack`.
 
 ## 12. Milestones
 
@@ -629,7 +629,7 @@ Each phase is a series of PRs that leave `main` releasable and is done only when
 |---|---|---|
 | **0: Repo and CI** | this SDD, glossary, ADRs, licenses, `cargo init` scaffold, `ci.yml`, Dependabot, PR template, ruleset | `ci-ok` green on the PR; ruleset active on `main` |
 | **1: Scaffold and walker** | `cli`, `config` (all layers + `init`), `scanner` with ignore files, `.ctxignore`, Exclusion, filters, binary/size skips, symlink policy, stdin | e2e tests list the right Candidates for a fixture tree, including Exclusion-beats-`!.gitignore` |
-| **2: Tokens, output, Redaction** | `encoder`, `formatter` (XML + Markdown + File Tree), `report` (table + JSON), `sink` (stdout, file, clipboard), `redact`; content passes through uncompressed. First `cargo-dist` release. | determinism and secrets suites green; `git diff \| ctxpack -c` works on all three OSes |
+| **2: Tokens, output, Redaction** | `encoder`, `formatter` (XML + Markdown + File Tree), `report` (table + JSON), `sink` (stdout, file, clipboard), `redact`; content passes through uncompressed. First `cargo-dist` release. | determinism and secrets suites green; `git diff \| pithpack -c` works on all three OSes |
 | **3: `strip`** | `parser` for all 7 grammars, Doc/Free Comment queries, `compressor::strip`, whitespace normalisation, parse-error fallback | snapshot suite for every language in `strip` |
 | **4: `skeleton`** | body queries + placeholders for Rust, Python, TS/JS, Go; StripOnly fallback for HTML/CSS | snapshots plus the re-parse check for every Full language |
 | **5: `outline`** | `public.rs` per language, import/re-export handling | snapshots plus the re-parse check; File Tree unchanged across Modes |

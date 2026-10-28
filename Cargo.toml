@@ -1,18 +1,14 @@
 [package]
-name = "ctxpack-cli"
+name = "pithpack"
 version = "0.0.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Compress codebases into token-lean context bundles for LLMs"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/eckorog2005/ctxpack"
+repository = "https://github.com/eckorog2005/pithpack"
 readme = "README.md"
 keywords = ["llm", "context", "tokens", "tree-sitter", "cli"]
 categories = ["command-line-utilities", "development-tools"]
-
-[[bin]]
-name = "ctxpack"
-path = "src/main.rs"
 
 [dependencies]
 
