@@ -11,8 +11,16 @@ keywords = ["llm", "context", "tokens", "tree-sitter", "cli"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
+anyhow = "1.0.104"
+clap = { version = "4.6.7", features = ["derive"] }
+ignore = "0.4.30"
 
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = true
+
+[dev-dependencies]
+assert_cmd = "2.2.2"
+predicates = "3.1.4"
+tempfile = "3.27.0"
