@@ -29,6 +29,7 @@ pub enum Input {
 #[derive(Debug)]
 pub struct Options {
     pub inputs: Vec<Input>,
+    pub allow_secret_file: bool,
     pub tree: bool,
     pub tokenizer: TokenizerKind,
     pub report: ReportFormat,
@@ -56,6 +57,7 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
         .collect();
     Ok(Options {
         inputs,
+        allow_secret_file: cli.allow_secret_file,
         tree: !cli.no_tree,
         tokenizer: cli.tokenizer.unwrap_or(TokenizerKind::O200k),
         report: if cli.quiet {

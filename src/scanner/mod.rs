@@ -1,3 +1,5 @@
+pub mod exclusion;
+
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
@@ -10,32 +12,61 @@ pub struct Candidate {
     pub path: PathBuf,
     /// Relative to the current directory as the user typed it, with `/` separators.
     pub display: String,
+    pub origin: Origin,
+}
+
+/// Ordered so that sorting puts an `Explicit` Candidate before a `Walked` one with the same path.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub enum Origin {
+    Explicit,
+    Walked,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Skip {
+    Excluded,
 }
 
 #[derive(Debug)]
 pub struct ScanResult {
     /// Sorted by `display`, without duplicates.
     pub candidates: Vec<Candidate>,
+    pub skipped: Vec<(String, Skip)>,
 }
 
 pub fn scan(opts: &Options) -> anyhow::Result<ScanResult> {
-    let mut candidates = Vec::new();
+    let mut found = Vec::new();
     for input in &opts.inputs {
         let Input::Path { path, display } = input;
         let meta =
             std::fs::metadata(path).with_context(|| format!("cannot read path `{display}`"))?;
         if meta.is_file() {
-            candidates.push(Candidate {
+            found.push(Candidate {
                 path: path.clone(),
                 display: display.clone(),
+                origin: Origin::Explicit,
             });
         } else {
-            walk(path, display, &mut candidates)?;
+            walk(path, display, &mut found)?;
         }
     }
-    candidates.sort_by(|a, b| a.display.cmp(&b.display));
-    candidates.dedup_by(|a, b| a.display == b.display);
-    Ok(ScanResult { candidates })
+    found.sort_by(|a, b| (&a.display, a.origin).cmp(&(&b.display, b.origin)));
+    found.dedup_by(|a, b| a.display == b.display);
+
+    let mut candidates = Vec::with_capacity(found.len());
+    let mut skipped = Vec::new();
+    for candidate in found {
+        let admitted = candidate.origin == Origin::Explicit && opts.allow_secret_file;
+        if exclusion::is_excluded(&candidate.path) && !admitted {
+            skipped.push((candidate.display, Skip::Excluded));
+        } else {
+            candidates.push(candidate);
+        }
+    }
+    Ok(ScanResult {
+        candidates,
+        skipped,
+    })
 }
 
 fn walk(root: &Path, root_display: &str, out: &mut Vec<Candidate>) -> anyhow::Result<()> {
@@ -58,6 +89,7 @@ fn walk(root: &Path, root_display: &str, out: &mut Vec<Candidate>) -> anyhow::Re
         out.push(Candidate {
             path: entry.into_path(),
             display,
+            origin: Origin::Walked,
         });
     }
     Ok(())

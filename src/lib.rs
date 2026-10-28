@@ -86,6 +86,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
                     compressed_tokens: b.tokens,
                 })
                 .collect(),
+            skipped: scan.skipped,
             bundle_tokens: meta.tokens,
             tokenizer: encoder.name(),
             elapsed: started.elapsed(),
