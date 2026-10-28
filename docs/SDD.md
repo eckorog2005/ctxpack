@@ -365,7 +365,7 @@ pub struct ScanResult {
 pub fn scan(opts: &Options) -> ScanResult;
 ```
 
-Implementation uses `ignore::WalkBuilder` (`.gitignore`, `.ignore`, global gitignore, and `.ctxignore` via `add_custom_ignore_filename`) with `build_parallel()`. Hidden files are walked (so `.github/` is included) but `.git/` itself is always skipped. Binary sniff reads the first 8 KiB and looks for a NUL byte with `memchr`.
+Implementation uses `ignore::WalkBuilder` (`.gitignore`, `.ignore`, global gitignore, and `.pithignore` via `add_custom_ignore_filename`) with `build_parallel()`. Hidden files are walked (so `.github/` is included) but `.git/` itself is always skipped. Binary sniff reads the first 8 KiB and looks for a NUL byte with `memchr`.
 
 ### 8.2 `parser`
 
@@ -628,7 +628,7 @@ Each phase is a series of PRs that leave `main` releasable and is done only when
 | Phase | Scope | Done when |
 |---|---|---|
 | **0: Repo and CI** | this SDD, glossary, ADRs, licenses, `cargo init` scaffold, `ci.yml`, Dependabot, PR template, ruleset | `ci-ok` green on the PR; ruleset active on `main` |
-| **1: Scaffold and walker** | `cli`, `config` (all layers + `init`), `scanner` with ignore files, `.ctxignore`, Exclusion, filters, binary/size skips, symlink policy, stdin | e2e tests list the right Candidates for a fixture tree, including Exclusion-beats-`!.gitignore` |
+| **1: Scaffold and walker** | `cli`, `config` (all layers + `init`), `scanner` with ignore files, `.pithignore`, Exclusion, filters, binary/size skips, symlink policy, stdin | e2e tests list the right Candidates for a fixture tree, including Exclusion-beats-`!.gitignore` |
 | **2: Tokens, output, Redaction** | `encoder`, `formatter` (XML + Markdown + File Tree), `report` (table + JSON), `sink` (stdout, file, clipboard), `redact`; content passes through uncompressed. First `cargo-dist` release. | determinism and secrets suites green; `git diff \| pithpack -c` works on all three OSes |
 | **3: `strip`** | `parser` for all 7 grammars, Doc/Free Comment queries, `compressor::strip`, whitespace normalisation, parse-error fallback | snapshot suite for every language in `strip` |
 | **4: `skeleton`** | body queries + placeholders for Rust, Python, TS/JS, Go; StripOnly fallback for HTML/CSS | snapshots plus the re-parse check for every Full language |
