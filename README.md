@@ -1,4 +1,4 @@
-# ctxpack
+# pithpack
 
 Compress codebases into token-lean context bundles for LLMs.
 
@@ -6,7 +6,7 @@ Compress codebases into token-lean context bundles for LLMs.
 
 ## Install
 
-Once released: `cargo install ctxpack-cli` (the binary is `ctxpack`; the `ctxpack` crate on crates.io is an unrelated project).
+Once released: `cargo install pithpack`.
 
 ## License
 

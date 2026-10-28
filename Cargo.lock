@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "ctxpack-cli"
+name = "pithpack"
 version = "0.0.0"

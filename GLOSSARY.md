@@ -1,6 +1,6 @@
-# ctxpack
+# pithpack
 
-ctxpack turns source files into a single token-lean bundle for feeding to an LLM, reporting how many tokens it saved.
+pithpack turns source files into a single token-lean bundle for feeding to an LLM, reporting how many tokens it saved.
 
 ## Inputs
 
