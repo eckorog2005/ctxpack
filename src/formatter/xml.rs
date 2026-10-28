@@ -6,10 +6,12 @@ pub fn render(meta: &BundleMeta, files: &[FileBlock]) -> String {
     let mut out = String::new();
     let _ = writeln!(
         out,
-        "<bundle tool=\"pithpack\" version=\"{}\" mode=\"{}\" files=\"{}\">",
+        "<bundle tool=\"pithpack\" version=\"{}\" mode=\"{}\" tokenizer=\"{}\" files=\"{}\" tokens=\"{}\">",
         env!("CARGO_PKG_VERSION"),
         meta.mode,
-        files.len()
+        meta.tokenizer,
+        files.len(),
+        meta.tokens
     );
     if meta.tree {
         let paths: Vec<&str> = files.iter().map(|f| f.display).collect();
@@ -18,12 +20,13 @@ pub fn render(meta: &BundleMeta, files: &[FileBlock]) -> String {
         out.push_str("</tree>\n");
     }
     for file in files {
-        let lang = file.lang.map_or("text", |l| l.name());
+        let lang = crate::parser::lang_name(file.lang);
         let _ = writeln!(
             out,
-            "<file path=\"{}\" lang=\"{lang}\" mode=\"{}\">",
+            "<file path=\"{}\" lang=\"{lang}\" mode=\"{}\" tokens=\"{}\">",
             attr(file.display),
-            file.mode
+            file.mode,
+            file.tokens
         );
         out.push_str(&file.text.replace("</file>", "<\\/file>"));
         if !file.text.is_empty() && !file.text.ends_with('\n') {

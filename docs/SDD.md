@@ -473,7 +473,7 @@ impl Encoder {
 }
 ```
 
-Backed by `tiktoken-rs`. BPE construction is the largest fixed startup cost, so `main` starts `Encoder::get` on a background thread before scanning begins (§9.2).
+Backed by `tiktoken-rs`. BPE construction is the largest fixed startup cost, so `lib::run` starts `Encoder::get` on a background thread before scanning begins and joins it once Source Files are read (§9.2).
 
 ### 8.5 `formatter`
 
@@ -488,7 +488,7 @@ pub struct FileBlock<'a> {
     pub text: &'a str,
 }
 
-pub struct BundleMeta { pub mode: Mode, pub tokenizer: &'static str, pub tree: bool }
+pub struct BundleMeta { pub mode: Mode, pub tokenizer: &'static str, pub tokens: usize, pub tree: bool }
 
 pub fn render(meta: &BundleMeta, files: &[FileBlock]) -> String;  // header token total filled by lib::run
 pub fn file_tree(paths: &[&str]) -> String;
@@ -514,7 +514,7 @@ pub fn run(opts: Options, io: Io) -> Result<Outcome> { … }
 ```
 
 - File content is **not** XML-escaped: LLMs read it as text, and escaping `<`/`&` in code costs tokens and readability. The one exception is a literal `</file>` inside content, which is written as `<\/file>` so a block can't close early; this is the only byte pithpack ever alters for formatting reasons, and it is documented.
-- The Bundle-level `tokens` attribute counts the whole rendered Bundle. Because the number sits inside the text it counts, `lib::run` renders, counts, then writes the number in; the attribute's own digits can shift the true total by ±2 tokens, which is accepted.
+- The Bundle-level `tokens` attribute counts the whole rendered Bundle. Because the number sits inside the text it counts, `lib::run` renders with `tokens: 0`, counts, then renders again with the count; the attribute's own digits can shift the true total by ±2 tokens, which is accepted.
 - Markdown format uses a `## path` heading per file and a fence one backtick longer than the longest backtick run in that file (minimum 3), with the language as the info string.
 
 ### 8.6 `report`

@@ -18,7 +18,7 @@ fn pithpack(cwd: &Path, home: &Path) -> Command {
 }
 
 #[test]
-fn success_writes_only_the_bundle_to_stdout_and_exits_0() {
+fn success_writes_only_the_bundle_to_stdout_and_the_report_to_stderr() {
     let dir = fixture(&[("src/lib.rs", "pub fn a() {}\n")]);
     let home = tempfile::tempdir().unwrap();
 
@@ -29,6 +29,18 @@ fn success_writes_only_the_bundle_to_stdout_and_exits_0() {
         .stdout(
             predicate::str::starts_with("<bundle ").and(predicate::str::ends_with("</bundle>\n")),
         )
+        .stderr(predicate::str::contains("src/lib.rs").and(predicate::str::contains(" bundle: ")));
+}
+
+#[test]
+fn quiet_success_leaves_stderr_empty() {
+    let dir = fixture(&[("src/lib.rs", "pub fn a() {}\n")]);
+    let home = tempfile::tempdir().unwrap();
+
+    pithpack(dir.path(), home.path())
+        .args(["-q", "src"])
+        .assert()
+        .code(0)
         .stderr("");
 }
 

@@ -1,6 +1,8 @@
 use std::path::{Component, Path, PathBuf};
 
 use crate::cli::CliArgs;
+use crate::encoder::TokenizerKind;
+use crate::report::ReportFormat;
 
 /// The process environment `resolve` depends on, injected so it can be faked in tests.
 pub struct Env {
@@ -28,6 +30,8 @@ pub enum Input {
 pub struct Options {
     pub inputs: Vec<Input>,
     pub tree: bool,
+    pub tokenizer: TokenizerKind,
+    pub report: ReportFormat,
 }
 
 #[derive(Debug)]
@@ -53,6 +57,12 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
     Ok(Options {
         inputs,
         tree: !cli.no_tree,
+        tokenizer: cli.tokenizer.unwrap_or(TokenizerKind::O200k),
+        report: if cli.quiet {
+            ReportFormat::None
+        } else {
+            cli.report.unwrap_or(ReportFormat::Table)
+        },
     })
 }
 

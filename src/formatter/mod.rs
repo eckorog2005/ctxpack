@@ -9,11 +9,15 @@ pub struct FileBlock<'a> {
     pub display: &'a str,
     pub lang: Option<Language>,
     pub mode: &'static str,
+    pub tokens: usize,
     pub text: &'a str,
 }
 
 pub struct BundleMeta {
     pub mode: &'static str,
+    pub tokenizer: &'static str,
+    /// The whole Bundle's count, known only after a first render.
+    pub tokens: usize,
     pub tree: bool,
 }
 
