@@ -99,8 +99,7 @@ The brief placed secret scrubbing in `scanner`. It is split into `redact` becaus
 ├── rust-toolchain.toml           # stable + rustfmt + clippy
 ├── deny.toml                     # cargo-deny: advisories, licenses, bans, sources
 ├── .editorconfig
-├── LICENSE-MIT
-├── LICENSE-APACHE
+├── LICENSE
 ├── README.md
 ├── GLOSSARY.md
 ├── AGENTS.md
@@ -614,7 +613,7 @@ The clipboard is tested behind a `PITHPACK_CLIPBOARD=file:<path>` test hook so C
 
 ## 11. Repository, CI and contribution flow
 
-- **License**: `MIT OR Apache-2.0`.
+- **License**: `MIT`.
 - **Merging**: squash only; the PR title (Conventional Commits) and body become the commit on `main`; branches are deleted on merge.
 - **Ruleset on `main`**: PR required (0 approvals while there is a single maintainer; raise to 1 when a second joins), conversations resolved, required status check `ci-ok` with branch up to date, linear history, no force pushes, no deletion, no bypass actors.
 - **CI (`ci.yml`)**: `fmt`, `clippy -D warnings`, `test` (ubuntu, macOS arm64, Windows, via `cargo nextest`) plus doctests, `msrv` (Rust 1.85), `deny` (`cargo-deny`), `pr-title` (semantic PR title). `ci-ok` aggregates them and is the only required check, so jobs can change without editing the ruleset.
