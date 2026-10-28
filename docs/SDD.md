@@ -344,7 +344,7 @@ Signatures are the contract; bodies are elided.
 ```rust
 pub struct Candidate {
     pub path: PathBuf,             // absolute
-    pub display: String,           // relative to its walk root, '/' separators
+    pub display: String,           // path argument as typed + path below it, '/' separators
     pub len: u64,
     pub origin: Origin,            // Explicit (CLI arg) | Walked | Stdin
 }
@@ -570,7 +570,7 @@ The clipboard uses `arboard`. On Linux (X11 and Wayland) the clipboard lives onl
 ### 8.8 `lib::run`
 
 ```rust
-pub struct Io<'a> { pub stdin: &'a mut dyn Read, pub stderr: &'a mut dyn Write, pub stderr_is_tty: bool }
+pub struct Io<'a> { pub stdin: &'a mut dyn Read, pub stdout: &'a mut dyn Write, pub stderr: &'a mut dyn Write, pub stderr_is_tty: bool }
 
 pub enum Outcome { Ok, OverBudget { tokens: usize, budget: u64 } }
 
