@@ -27,6 +27,10 @@ impl Language {
     }
 }
 
+pub fn lang_name(lang: Option<Language>) -> &'static str {
+    lang.map_or("text", Language::name)
+}
+
 /// `None` means Plain Text.
 pub fn detect(path: &str) -> Option<Language> {
     let (_, ext) = path.rsplit_once('.')?;

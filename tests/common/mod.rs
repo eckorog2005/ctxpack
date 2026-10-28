@@ -31,6 +31,10 @@ pub struct Run {
 
 /// Runs pithpack in-process with `cwd` as the working directory.
 pub fn run(cwd: &Path, args: &[&str]) -> Run {
+    run_with_tty(cwd, args, false)
+}
+
+pub fn run_with_tty(cwd: &Path, args: &[&str], stderr_is_tty: bool) -> Run {
     let cli =
         CliArgs::try_parse_from(std::iter::once("pithpack").chain(args.iter().copied())).unwrap();
     let env = Env {
@@ -46,7 +50,7 @@ pub fn run(cwd: &Path, args: &[&str]) -> Run {
             stdin: &mut stdin,
             stdout: &mut stdout,
             stderr: &mut stderr,
-            stderr_is_tty: false,
+            stderr_is_tty,
         },
     );
     Run {

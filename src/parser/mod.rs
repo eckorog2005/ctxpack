@@ -1,3 +1,3 @@
 mod language;
 
-pub use language::{Language, detect};
+pub use language::{Language, detect, lang_name};
