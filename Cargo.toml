@@ -1,0 +1,22 @@
+[package]
+name = "ctxpack-cli"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Compress codebases into token-lean context bundles for LLMs"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/eckorog2005/ctxpack"
+readme = "README.md"
+keywords = ["llm", "context", "tokens", "tree-sitter", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "ctxpack"
+path = "src/main.rs"
+
+[dependencies]
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
