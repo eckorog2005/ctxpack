@@ -12,6 +12,22 @@ pub struct CliArgs {
     #[arg(required = true)]
     pub paths: Vec<PathBuf>,
 
+    /// Keep only files with these extensions, e.g. `rs,toml`
+    #[arg(short, long, value_delimiter = ',', value_name = "EXT,...")]
+    pub include: Vec<String>,
+
+    /// Skip files matching this gitignore-style glob, relative to each walked directory
+    #[arg(short, long, value_name = "GLOB", value_parser = parse_exclude)]
+    pub exclude: Vec<String>,
+
+    /// Skip files larger than this many bytes; accepts `KiB` and `MiB` suffixes [default: 1MiB]
+    #[arg(long, value_name = "SIZE", value_parser = parse_size)]
+    pub max_file_size: Option<u64>,
+
+    /// Follow symbolic links; Exclusion still applies to the link target
+    #[arg(long)]
+    pub follow_symlinks: bool,
+
     /// Admit a secret-looking file, but only one whose exact path is given as an argument
     #[arg(long)]
     pub allow_secret_file: bool,
@@ -31,4 +47,57 @@ pub struct CliArgs {
     /// Same as `--report none`
     #[arg(short, long)]
     pub quiet: bool,
+}
+
+fn parse_exclude(glob: &str) -> Result<String, String> {
+    ignore::overrides::OverrideBuilder::new("")
+        .add(&format!("!{glob}"))
+        .map_err(|err| err.to_string())?;
+    Ok(glob.to_string())
+}
+
+fn parse_size(size: &str) -> Result<u64, String> {
+    let (digits, unit) = if let Some(n) = size.strip_suffix("MiB") {
+        (n, 1024 * 1024)
+    } else if let Some(n) = size.strip_suffix("KiB") {
+        (n, 1024)
+    } else {
+        (size, 1)
+    };
+    digits
+        .parse::<u64>()
+        .ok()
+        .and_then(|n| n.checked_mul(unit))
+        .ok_or_else(|| {
+            "expected a whole number of bytes, optionally with a KiB or MiB suffix".into()
+        })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sizes_parse_as_bytes_or_binary_suffixes() {
+        assert_eq!(parse_size("0"), Ok(0));
+        assert_eq!(parse_size("1500"), Ok(1500));
+        assert_eq!(parse_size("512KiB"), Ok(524_288));
+        assert_eq!(parse_size("1MiB"), Ok(1_048_576));
+    }
+
+    #[test]
+    fn malformed_or_overflowing_sizes_are_rejected() {
+        for size in [
+            "",
+            "MiB",
+            "1 MiB",
+            "1mib",
+            "1GiB",
+            "-1",
+            "1.5KiB",
+            "99999999999999999MiB",
+        ] {
+            assert!(parse_size(size).is_err(), "{size:?} should be rejected");
+        }
+    }
 }

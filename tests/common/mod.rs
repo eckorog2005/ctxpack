@@ -23,6 +23,15 @@ pub fn write(root: &Path, path: &str, content: &str) {
     fs::write(path, content).unwrap();
 }
 
+/// The `path` attribute of every `<file>` block, in Bundle order.
+pub fn file_paths(bundle: &str) -> Vec<&str> {
+    bundle
+        .lines()
+        .filter_map(|l| l.strip_prefix("<file path=\""))
+        .map(|l| l.split('"').next().unwrap())
+        .collect()
+}
+
 pub struct Run {
     pub outcome: anyhow::Result<Outcome>,
     pub stdout: String,

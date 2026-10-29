@@ -106,3 +106,18 @@ fn the_same_inputs_produce_byte_identical_output() {
     assert!(first.status.success());
     assert_eq!(first.stdout, second.stdout);
 }
+
+#[test]
+fn an_invalid_max_file_size_is_a_usage_error() {
+    let dir = fixture(&[("a.rs", "")]);
+    let home = tempfile::tempdir().unwrap();
+
+    for size in ["1GB", "lots", "-5", "1.5MiB"] {
+        pithpack(dir.path(), home.path())
+            .args([".", &format!("--max-file-size={size}")])
+            .assert()
+            .code(2)
+            .stdout("")
+            .stderr(predicate::str::contains("--max-file-size"));
+    }
+}

@@ -26,9 +26,22 @@ pub enum Input {
     },
 }
 
+const DEFAULT_MAX_FILE_SIZE: u64 = 1024 * 1024;
+
+#[derive(Debug)]
+pub struct FilterOptions {
+    /// Extensions without the leading dot; empty keeps every extension.
+    pub include: Vec<String>,
+    /// Gitignore-style globs, matched relative to each walked directory.
+    pub exclude: Vec<String>,
+    pub max_file_size: u64,
+    pub follow_symlinks: bool,
+}
+
 #[derive(Debug)]
 pub struct Options {
     pub inputs: Vec<Input>,
+    pub filter: FilterOptions,
     pub allow_secret_file: bool,
     pub tree: bool,
     pub tokenizer: TokenizerKind,
@@ -57,6 +70,17 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
         .collect();
     Ok(Options {
         inputs,
+        filter: FilterOptions {
+            include: cli
+                .include
+                .iter()
+                .map(|ext| ext.trim_start_matches('.').to_string())
+                .filter(|ext| !ext.is_empty())
+                .collect(),
+            exclude: cli.exclude,
+            max_file_size: cli.max_file_size.unwrap_or(DEFAULT_MAX_FILE_SIZE),
+            follow_symlinks: cli.follow_symlinks,
+        },
         allow_secret_file: cli.allow_secret_file,
         tree: !cli.no_tree,
         tokenizer: cli.tokenizer.unwrap_or(TokenizerKind::O200k),

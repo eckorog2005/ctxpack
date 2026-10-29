@@ -161,20 +161,33 @@ pub fn render_table(r: &Report, color: bool) -> String {
         thousands(r.bundle_tokens),
         r.tokenizer
     );
-    // Only a count: naming secret files would draw attention to them.
-    match r
-        .skipped
-        .iter()
-        .filter(|(_, s)| *s == Skip::Excluded)
-        .count()
-    {
-        0 => {}
-        1 => footer.push_str(" · 1 file excluded as a secret"),
-        n => footer.push_str(&format!(" · {n} files excluded as secrets")),
+    if !r.skipped.is_empty() {
+        footer.push_str(&format!(
+            " · {} skipped ({})",
+            r.skipped.len(),
+            skip_counts(&r.skipped)
+        ));
     }
     footer.push_str(&format!(" · {} ms", r.elapsed.as_millis()));
     out.push_str(&format!(" {}\n", paint(DIM, &footer)));
     out
+}
+
+/// Only counts: naming secret files would draw attention to them.
+fn skip_counts(skipped: &[(String, Skip)]) -> String {
+    let count = |reason: fn(&Skip) -> bool| skipped.iter().filter(|(_, s)| reason(s)).count();
+    let secrets = count(|s| *s == Skip::Excluded);
+    [
+        (secrets, if secrets == 1 { "secret" } else { "secrets" }),
+        (count(|s| *s == Skip::Binary), "binary"),
+        (count(|s| matches!(s, Skip::TooLarge { .. })), "too large"),
+        (count(|s| matches!(s, Skip::Unreadable(_))), "unreadable"),
+    ]
+    .into_iter()
+    .filter(|&(n, _)| n > 0)
+    .map(|(n, reason)| format!("{n} {reason}"))
+    .collect::<Vec<_>>()
+    .join(", ")
 }
 
 fn human_bytes(n: u64) -> String {
@@ -282,16 +295,40 @@ mod tests {
     }
 
     #[test]
-    fn the_footer_counts_one_excluded_file_in_the_singular() {
+    fn the_footer_counts_skipped_files_per_reason_in_a_fixed_order() {
+        let mut r = report(vec![stat("a.rs", (10, 10), (4, 4))]);
+        r.skipped = vec![
+            ("big.bin".to_string(), Skip::TooLarge { len: 5_000_000 }),
+            (
+                "locked.rs".to_string(),
+                Skip::Unreadable(std::io::ErrorKind::PermissionDenied),
+            ),
+            ("logo.png".to_string(), Skip::Binary),
+            (".env".to_string(), Skip::Excluded),
+            ("id_rsa".to_string(), Skip::Excluded),
+            ("font.woff".to_string(), Skip::Binary),
+        ];
+
+        let table = render_table(&r, false);
+
+        assert!(
+            table.ends_with(
+                " bundle: 1,834 tokens (o200k_base) · 6 skipped \
+                 (2 secrets, 2 binary, 1 too large, 1 unreadable) · 41 ms\n"
+            ),
+            "{table}"
+        );
+    }
+
+    #[test]
+    fn the_footer_counts_one_secret_in_the_singular_and_omits_absent_reasons() {
         let mut r = report(vec![stat("a.rs", (10, 10), (4, 4))]);
         r.skipped = vec![(".env".to_string(), Skip::Excluded)];
 
         let table = render_table(&r, false);
 
         assert!(
-            table.ends_with(
-                " bundle: 1,834 tokens (o200k_base) · 1 file excluded as a secret · 41 ms\n"
-            ),
+            table.ends_with(" bundle: 1,834 tokens (o200k_base) · 1 skipped (1 secret) · 41 ms\n"),
             "{table}"
         );
     }
