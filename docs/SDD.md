@@ -282,7 +282,7 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError>;
 
 ### 7.1 Exclusion (`scanner::exclusion`)
 
-Built-in globs, case-insensitive, matched against the file name and the path relative to the walk root:
+Built-in globs, case-insensitive, each anchored as `**/<glob>` and matched against the whole path, so `.docker/config.json` is caught even when the walk starts inside `.docker/`:
 
 ```
 .env  .env.*  *.env  .envrc

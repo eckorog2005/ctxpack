@@ -12,6 +12,10 @@ pub struct CliArgs {
     #[arg(required = true)]
     pub paths: Vec<PathBuf>,
 
+    /// Admit a secret-looking file, but only one whose exact path is given as an argument
+    #[arg(long)]
+    pub allow_secret_file: bool,
+
     /// Omit the File Tree from the Bundle
     #[arg(long)]
     pub no_tree: bool,

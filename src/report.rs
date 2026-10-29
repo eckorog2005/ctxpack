@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use crate::parser::{self, Language};
+use crate::scanner::Skip;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, clap::ValueEnum)]
 pub enum ReportFormat {
@@ -20,6 +21,7 @@ pub struct FileStat {
 
 pub struct Report {
     pub files: Vec<FileStat>,
+    pub skipped: Vec<(String, Skip)>,
     pub bundle_tokens: usize,
     pub tokenizer: &'static str,
     pub elapsed: Duration,
@@ -154,12 +156,23 @@ pub fn render_table(r: &Report, color: bool) -> String {
         pair(&totals.tokens, tokens_w, tokens_cell),
         paint(GREEN, &format!("{:>saved_w$}", totals.saved))
     ));
-    let footer = format!(
-        "bundle: {} tokens ({}) · {} ms",
+    let mut footer = format!(
+        "bundle: {} tokens ({})",
         thousands(r.bundle_tokens),
-        r.tokenizer,
-        r.elapsed.as_millis()
+        r.tokenizer
     );
+    // Only a count: naming secret files would draw attention to them.
+    match r
+        .skipped
+        .iter()
+        .filter(|(_, s)| *s == Skip::Excluded)
+        .count()
+    {
+        0 => {}
+        1 => footer.push_str(" · 1 file excluded as a secret"),
+        n => footer.push_str(&format!(" · {n} files excluded as secrets")),
+    }
+    footer.push_str(&format!(" · {} ms", r.elapsed.as_millis()));
     out.push_str(&format!(" {}\n", paint(DIM, &footer)));
     out
 }
@@ -214,6 +227,7 @@ mod tests {
     fn report(files: Vec<FileStat>) -> Report {
         Report {
             files,
+            skipped: Vec::new(),
             bundle_tokens: 1834,
             tokenizer: "o200k_base",
             elapsed: Duration::from_millis(41),
@@ -265,5 +279,20 @@ mod tests {
 
         assert!(!render_table(&r, false).contains('\x1b'));
         assert!(render_table(&r, true).contains("\x1b["));
+    }
+
+    #[test]
+    fn the_footer_counts_one_excluded_file_in_the_singular() {
+        let mut r = report(vec![stat("a.rs", (10, 10), (4, 4))]);
+        r.skipped = vec![(".env".to_string(), Skip::Excluded)];
+
+        let table = render_table(&r, false);
+
+        assert!(
+            table.ends_with(
+                " bundle: 1,834 tokens (o200k_base) · 1 file excluded as a secret · 41 ms\n"
+            ),
+            "{table}"
+        );
     }
 }
