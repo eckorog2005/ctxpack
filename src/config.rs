@@ -43,6 +43,8 @@ pub struct Options {
     pub inputs: Vec<Input>,
     pub filter: FilterOptions,
     pub allow_secret_file: bool,
+    /// Only the CLI can turn this off; no config key may.
+    pub redact: bool,
     pub tree: bool,
     pub tokenizer: TokenizerKind,
     pub report: ReportFormat,
@@ -82,6 +84,7 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
             follow_symlinks: cli.follow_symlinks,
         },
         allow_secret_file: cli.allow_secret_file,
+        redact: !cli.no_redact,
         tree: !cli.no_tree,
         tokenizer: cli.tokenizer.unwrap_or(TokenizerKind::O200k),
         report: if cli.quiet {

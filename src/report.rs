@@ -17,6 +17,7 @@ pub struct FileStat {
     pub original_tokens: usize,
     pub compressed_bytes: u64,
     pub compressed_tokens: usize,
+    pub redactions: usize,
 }
 
 pub struct Report {
@@ -39,6 +40,7 @@ struct Row {
     bytes: (String, String),
     tokens: (String, String),
     saved: String,
+    redactions: String,
 }
 
 impl Row {
@@ -48,6 +50,7 @@ impl Row {
         mode: &'static str,
         bytes: (u64, u64),
         tokens: (usize, usize),
+        redactions: usize,
     ) -> Row {
         Row {
             file,
@@ -56,6 +59,7 @@ impl Row {
             bytes: (human_bytes(bytes.0), human_bytes(bytes.1)),
             tokens: (thousands(tokens.0), thousands(tokens.1)),
             saved: saved(tokens.0, tokens.1),
+            redactions: thousands(redactions),
         }
     }
 }
@@ -79,23 +83,23 @@ pub fn render_table(r: &Report, color: bool) -> String {
                 f.mode,
                 (f.original_bytes, f.compressed_bytes),
                 (f.original_tokens, f.compressed_tokens),
+                f.redactions,
             )
         })
         .collect();
-    let bytes = |field: fn(&FileStat) -> u64| r.files.iter().map(field).sum();
-    let tokens = |field: fn(&FileStat) -> usize| r.files.iter().map(field).sum();
+    let sum_bytes = |field: fn(&FileStat) -> u64| r.files.iter().map(field).sum();
+    let sum = |field: fn(&FileStat) -> usize| r.files.iter().map(field).sum();
+    let redactions = sum(|f| f.redactions);
     let totals = Row::new(
-        match r.files.len() {
-            1 => "1 file".to_string(),
-            n => format!("{n} files"),
-        },
+        counted(r.files.len(), "file", "files"),
         "",
         "",
-        (bytes(|f| f.original_bytes), bytes(|f| f.compressed_bytes)),
         (
-            tokens(|f| f.original_tokens),
-            tokens(|f| f.compressed_tokens),
+            sum_bytes(|f| f.original_bytes),
+            sum_bytes(|f| f.compressed_bytes),
         ),
+        (sum(|f| f.original_tokens), sum(|f| f.compressed_tokens)),
+        redactions,
     );
 
     let all = || rows.iter().chain(std::iter::once(&totals));
@@ -118,6 +122,14 @@ pub fn render_table(r: &Report, color: bool) -> String {
     let bytes_cell = (bytes_w.0 + 3 + bytes_w.1).max("bytes".len());
     let tokens_cell = (tokens_w.0 + 3 + tokens_w.1).max("tokens".len());
     let saved_w = width(|row| row.saved.len(), "saved");
+    let redactions_w = width(|row| row.redactions.len(), "redactions");
+    let redactions_cell = |cell: &str| {
+        if redactions > 0 {
+            format!("  {cell:>redactions_w$}")
+        } else {
+            String::new()
+        }
+    };
 
     let pair = |(a, b): &(String, String), (wa, wb): (usize, usize), cell: usize| {
         format!("{:<cell$}", format!("{a:>wa$} → {b:<wb$}"))
@@ -128,33 +140,36 @@ pub fn render_table(r: &Report, color: bool) -> String {
 
     let mut out = String::new();
     let header = format!(
-        "{}{:<bytes_cell$}  {:<tokens_cell$}  {:>saved_w$}",
+        "{}{:<bytes_cell$}  {:<tokens_cell$}  {:>saved_w$}{}",
         lead("file", "lang", "mode"),
         "bytes",
         "tokens",
-        "saved"
+        "saved",
+        redactions_cell("redactions")
     );
     out.push_str(&paint(BOLD, &header));
     out.push('\n');
     for row in &rows {
         let saved = format!("{:>saved_w$}", row.saved);
         out.push_str(&format!(
-            "{}{}  {}  {}\n",
+            "{}{}  {}  {}{}\n",
             lead(&row.file, row.lang, row.mode),
             pair(&row.bytes, bytes_w, bytes_cell),
             pair(&row.tokens, tokens_w, tokens_cell),
-            paint(GREEN, &saved)
+            paint(GREEN, &saved),
+            redactions_cell(&row.redactions)
         ));
     }
     let line_w = header.chars().count() - 1;
     out.push_str(&format!(" {}\n", paint(DIM, &"─".repeat(line_w))));
     let label_w = file_w + 2 + lang_w + 2 + mode_w;
     out.push_str(&format!(
-        " {:<label_w$}  {}  {}  {}\n",
+        " {:<label_w$}  {}  {}  {}{}\n",
         totals.file,
         pair(&totals.bytes, bytes_w, bytes_cell),
         pair(&totals.tokens, tokens_w, tokens_cell),
-        paint(GREEN, &format!("{:>saved_w$}", totals.saved))
+        paint(GREEN, &format!("{:>saved_w$}", totals.saved)),
+        redactions_cell(&totals.redactions)
     ));
     let mut footer = format!(
         "bundle: {} tokens ({})",
@@ -168,6 +183,12 @@ pub fn render_table(r: &Report, color: bool) -> String {
             skip_counts(&r.skipped)
         ));
     }
+    if redactions > 0 {
+        footer.push_str(&format!(
+            " · {}",
+            counted(redactions, "redaction", "redactions")
+        ));
+    }
     footer.push_str(&format!(" · {} ms", r.elapsed.as_millis()));
     out.push_str(&format!(" {}\n", paint(DIM, &footer)));
     out
@@ -176,18 +197,29 @@ pub fn render_table(r: &Report, color: bool) -> String {
 /// Only counts: naming secret files would draw attention to them.
 fn skip_counts(skipped: &[(String, Skip)]) -> String {
     let count = |reason: fn(&Skip) -> bool| skipped.iter().filter(|(_, s)| reason(s)).count();
-    let secrets = count(|s| *s == Skip::Excluded);
     [
-        (secrets, if secrets == 1 { "secret" } else { "secrets" }),
-        (count(|s| *s == Skip::Binary), "binary"),
-        (count(|s| matches!(s, Skip::TooLarge { .. })), "too large"),
-        (count(|s| matches!(s, Skip::Unreadable(_))), "unreadable"),
+        (count(|s| *s == Skip::Excluded), "secret", "secrets"),
+        (count(|s| *s == Skip::Binary), "binary", "binary"),
+        (
+            count(|s| matches!(s, Skip::TooLarge { .. })),
+            "too large",
+            "too large",
+        ),
+        (
+            count(|s| matches!(s, Skip::Unreadable(_))),
+            "unreadable",
+            "unreadable",
+        ),
     ]
     .into_iter()
-    .filter(|&(n, _)| n > 0)
-    .map(|(n, reason)| format!("{n} {reason}"))
+    .filter(|&(n, _, _)| n > 0)
+    .map(|(n, one, many)| counted(n, one, many))
     .collect::<Vec<_>>()
     .join(", ")
+}
+
+fn counted(n: usize, one: &str, many: &str) -> String {
+    format!("{} {}", thousands(n), if n == 1 { one } else { many })
 }
 
 fn human_bytes(n: u64) -> String {
@@ -234,6 +266,7 @@ mod tests {
             original_tokens: tokens.0,
             compressed_bytes: bytes.1,
             compressed_tokens: tokens.1,
+            redactions: 0,
         }
     }
 
@@ -329,6 +362,28 @@ mod tests {
 
         assert!(
             table.ends_with(" bundle: 1,834 tokens (o200k_base) · 1 skipped (1 secret) · 41 ms\n"),
+            "{table}"
+        );
+    }
+
+    #[test]
+    fn redactions_add_a_column_and_a_footer_count() {
+        let mut redacted = stat("a.rs", (10, 10), (4, 4));
+        redacted.redactions = 1;
+        let r = report(vec![redacted, stat("b.rs", (10, 10), (4, 4))]);
+
+        let table = render_table(&r, false);
+
+        assert!(
+            table.starts_with(
+                " file  lang  mode  bytes      tokens  saved  redactions\n \
+                 a.rs  rust  none  10B → 10B  4 → 4    0.0%           1\n \
+                 b.rs  rust  none  10B → 10B  4 → 4    0.0%           0\n"
+            ),
+            "{table}"
+        );
+        assert!(
+            table.ends_with(" bundle: 1,834 tokens (o200k_base) · 1 redaction · 41 ms\n"),
             "{table}"
         );
     }
