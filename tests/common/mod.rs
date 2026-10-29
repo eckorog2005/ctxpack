@@ -44,13 +44,21 @@ pub fn run(cwd: &Path, args: &[&str]) -> Run {
 }
 
 pub fn run_with_tty(cwd: &Path, args: &[&str], stderr_is_tty: bool) -> Run {
+    run_full(cwd, args, b"", stderr_is_tty)
+}
+
+pub fn run_with_stdin(cwd: &Path, args: &[&str], stdin: &str) -> Run {
+    run_full(cwd, args, stdin.as_bytes(), false)
+}
+
+fn run_full(cwd: &Path, args: &[&str], mut stdin: &[u8], stderr_is_tty: bool) -> Run {
     let cli =
         CliArgs::try_parse_from(std::iter::once("pithpack").chain(args.iter().copied())).unwrap();
     let env = Env {
         cwd: cwd.to_path_buf(),
+        stdin_is_tty: false,
     };
     let opts = config::resolve(cli, &env).unwrap();
-    let mut stdin = std::io::empty();
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
     let outcome = pithpack::run(

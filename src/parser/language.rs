@@ -12,6 +12,22 @@ pub enum Language {
 }
 
 impl Language {
+    pub const ALL: [Language; 9] = [
+        Language::Rust,
+        Language::Python,
+        Language::TypeScript,
+        Language::Tsx,
+        Language::JavaScript,
+        Language::Jsx,
+        Language::Go,
+        Language::Html,
+        Language::Css,
+    ];
+
+    pub fn from_name(name: &str) -> Option<Language> {
+        Language::ALL.into_iter().find(|lang| lang.name() == name)
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             Language::Rust => "rust",

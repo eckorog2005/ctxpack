@@ -16,7 +16,7 @@ use config::Options;
 use encoder::Encoder;
 use formatter::{BundleMeta, FileBlock};
 use report::{FileStat, Report, ReportFormat};
-use scanner::Skip;
+use scanner::{Origin, Skip};
 
 /// Content passes through uncompressed until the compressor lands, so no Mode is claimed.
 const UNCOMPRESSED: &str = "none";
@@ -55,8 +55,16 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
     let mut read_bytes = Vec::with_capacity(scan.candidates.len());
     let mut redactions = Vec::with_capacity(scan.candidates.len());
     for candidate in &scan.candidates {
-        let bytes = std::fs::read(&candidate.path)
-            .with_context(|| format!("cannot read `{}`", candidate.display))?;
+        let bytes = if candidate.origin == Origin::Stdin {
+            let mut bytes = Vec::new();
+            io.stdin
+                .read_to_end(&mut bytes)
+                .context("cannot read stdin")?;
+            bytes
+        } else {
+            std::fs::read(&candidate.path)
+                .with_context(|| format!("cannot read `{}`", candidate.display))?
+        };
         read_bytes.push(bytes.len() as u64);
         let raw = String::from_utf8_lossy(&bytes);
         if opts.redact {
@@ -75,7 +83,10 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
         .zip(&texts)
         .map(|(c, text)| FileBlock {
             display: &c.display,
-            lang: parser::detect(&c.display),
+            lang: match c.origin {
+                Origin::Stdin => opts.stdin_lang,
+                Origin::Explicit | Origin::Walked => parser::detect(&c.display),
+            },
             mode: UNCOMPRESSED,
             tokens: encoder.count(text),
             text,
