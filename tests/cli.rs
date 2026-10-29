@@ -121,3 +121,39 @@ fn an_invalid_max_file_size_is_a_usage_error() {
             .stderr(predicate::str::contains("--max-file-size"));
     }
 }
+
+#[test]
+fn piped_stdin_is_bundled_and_redacted_when_no_paths_are_given() {
+    let dir = fixture(&[]);
+    let home = tempfile::tempdir().unwrap();
+    let aws = ["AKIA", "Z7QK2M4XW9TB3HNP"].concat();
+
+    pithpack(dir.path(), home.path())
+        .write_stdin(format!("+let key = \"{aws}\";\n"))
+        .assert()
+        .code(0)
+        .stdout(
+            predicate::str::contains("<file path=\"&lt;stdin&gt;\" lang=\"text\" ")
+                .and(predicate::str::contains(
+                    "+let key = \"[REDACTED:aws-access-key]\";\n",
+                ))
+                .and(predicate::str::contains(aws.as_str()).not()),
+        )
+        .stderr(
+            predicate::str::contains(" <stdin> ").and(predicate::str::contains(aws.as_str()).not()),
+        );
+}
+
+#[test]
+fn an_unknown_lang_is_a_usage_error() {
+    let dir = fixture(&[]);
+    let home = tempfile::tempdir().unwrap();
+
+    pithpack(dir.path(), home.path())
+        .args(["--lang", "cobol"])
+        .write_stdin("x\n")
+        .assert()
+        .code(2)
+        .stdout("")
+        .stderr(predicate::str::contains("--lang"));
+}

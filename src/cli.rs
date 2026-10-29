@@ -3,13 +3,13 @@ use std::path::PathBuf;
 use clap::Parser;
 
 use crate::encoder::TokenizerKind;
+use crate::parser::Language;
 use crate::report::ReportFormat;
 
 #[derive(Parser, Debug)]
 #[command(name = "pithpack", version, about)]
 pub struct CliArgs {
-    /// Files or directories to bundle
-    #[arg(required = true)]
+    /// Files or directories to bundle; `-` reads stdin, as does giving none with stdin piped
     pub paths: Vec<PathBuf>,
 
     /// Keep only files with these extensions, e.g. `rs,toml`
@@ -36,6 +36,10 @@ pub struct CliArgs {
     #[arg(long)]
     pub no_redact: bool,
 
+    /// Language of stdin, for labelling; without it stdin is Plain Text
+    #[arg(long, value_name = "LANG", value_parser = parse_lang)]
+    pub lang: Option<Language>,
+
     /// Omit the File Tree from the Bundle
     #[arg(long)]
     pub no_tree: bool,
@@ -58,6 +62,13 @@ fn parse_exclude(glob: &str) -> Result<String, String> {
         .add(&format!("!{glob}"))
         .map_err(|err| err.to_string())?;
     Ok(glob.to_string())
+}
+
+fn parse_lang(name: &str) -> Result<Language, String> {
+    Language::from_name(name).ok_or_else(|| {
+        let names: Vec<&str> = Language::ALL.iter().map(|lang| lang.name()).collect();
+        format!("expected one of {}", names.join(", "))
+    })
 }
 
 fn parse_size(size: &str) -> Result<u64, String> {

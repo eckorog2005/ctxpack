@@ -170,7 +170,7 @@ pithpack [OPTIONS] [PATHS]...
 pithpack init                      # write a commented pithpack.toml in the current directory
 ```
 
-With no `PATHS` and a non-TTY stdin, stdin is read. `-` reads stdin explicitly and may be combined with paths.
+With no `PATHS` and a non-TTY stdin, stdin is read. With no `PATHS` and a TTY stdin, pithpack exits 2 with a usage error rather than waiting for typed input. `-` reads stdin explicitly and may be combined with paths; giving it more than once still reads stdin once. Stdin is never subject to Exclusion, size or binary checks, which are about files.
 
 ### 5.1 Options
 

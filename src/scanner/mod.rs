@@ -23,6 +23,7 @@ pub struct Candidate {
 pub enum Origin {
     Explicit,
     Walked,
+    Stdin,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -40,11 +41,23 @@ pub struct ScanResult {
     pub skipped: Vec<(String, Skip)>,
 }
 
+pub const STDIN_DISPLAY: &str = "<stdin>";
+
 pub fn scan(opts: &Options) -> anyhow::Result<ScanResult> {
     let mut found = Vec::new();
     let mut skipped = Vec::new();
     for input in &opts.inputs {
-        let Input::Path { path, display } = input;
+        let (path, display) = match input {
+            Input::Path { path, display } => (path, display),
+            Input::Stdin => {
+                found.push(Candidate {
+                    path: PathBuf::new(),
+                    display: STDIN_DISPLAY.to_string(),
+                    origin: Origin::Stdin,
+                });
+                continue;
+            }
+        };
         let meta =
             std::fs::metadata(path).with_context(|| format!("cannot read path `{display}`"))?;
         if meta.is_file() {
@@ -76,6 +89,9 @@ pub fn scan(opts: &Options) -> anyhow::Result<ScanResult> {
 
 /// Exclusion comes first so that a secret file is never opened.
 fn admit(candidate: &Candidate, opts: &Options) -> Result<(), Skip> {
+    if candidate.origin == Origin::Stdin {
+        return Ok(());
+    }
     let secret_allowed = candidate.origin == Origin::Explicit && opts.allow_secret_file;
     // Explicit arguments are always followed, so their link targets are checked too.
     let followed = candidate.origin == Origin::Explicit || opts.filter.follow_symlinks;
