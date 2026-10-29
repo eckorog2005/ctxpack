@@ -87,17 +87,17 @@ pub fn render_table(r: &Report, color: bool) -> String {
             )
         })
         .collect();
-    let bytes = |field: fn(&FileStat) -> u64| r.files.iter().map(field).sum();
+    let sum_bytes = |field: fn(&FileStat) -> u64| r.files.iter().map(field).sum();
     let sum = |field: fn(&FileStat) -> usize| r.files.iter().map(field).sum();
     let redactions = sum(|f| f.redactions);
     let totals = Row::new(
-        match r.files.len() {
-            1 => "1 file".to_string(),
-            n => format!("{n} files"),
-        },
+        counted(r.files.len(), "file", "files"),
         "",
         "",
-        (bytes(|f| f.original_bytes), bytes(|f| f.compressed_bytes)),
+        (
+            sum_bytes(|f| f.original_bytes),
+            sum_bytes(|f| f.compressed_bytes),
+        ),
         (sum(|f| f.original_tokens), sum(|f| f.compressed_tokens)),
         redactions,
     );
@@ -183,10 +183,11 @@ pub fn render_table(r: &Report, color: bool) -> String {
             skip_counts(&r.skipped)
         ));
     }
-    match redactions {
-        0 => {}
-        1 => footer.push_str(" · 1 redaction"),
-        n => footer.push_str(&format!(" · {} redactions", thousands(n))),
+    if redactions > 0 {
+        footer.push_str(&format!(
+            " · {}",
+            counted(redactions, "redaction", "redactions")
+        ));
     }
     footer.push_str(&format!(" · {} ms", r.elapsed.as_millis()));
     out.push_str(&format!(" {}\n", paint(DIM, &footer)));
@@ -196,18 +197,29 @@ pub fn render_table(r: &Report, color: bool) -> String {
 /// Only counts: naming secret files would draw attention to them.
 fn skip_counts(skipped: &[(String, Skip)]) -> String {
     let count = |reason: fn(&Skip) -> bool| skipped.iter().filter(|(_, s)| reason(s)).count();
-    let secrets = count(|s| *s == Skip::Excluded);
     [
-        (secrets, if secrets == 1 { "secret" } else { "secrets" }),
-        (count(|s| *s == Skip::Binary), "binary"),
-        (count(|s| matches!(s, Skip::TooLarge { .. })), "too large"),
-        (count(|s| matches!(s, Skip::Unreadable(_))), "unreadable"),
+        (count(|s| *s == Skip::Excluded), "secret", "secrets"),
+        (count(|s| *s == Skip::Binary), "binary", "binary"),
+        (
+            count(|s| matches!(s, Skip::TooLarge { .. })),
+            "too large",
+            "too large",
+        ),
+        (
+            count(|s| matches!(s, Skip::Unreadable(_))),
+            "unreadable",
+            "unreadable",
+        ),
     ]
     .into_iter()
-    .filter(|&(n, _)| n > 0)
-    .map(|(n, reason)| format!("{n} {reason}"))
+    .filter(|&(n, _, _)| n > 0)
+    .map(|(n, one, many)| counted(n, one, many))
     .collect::<Vec<_>>()
     .join(", ")
+}
+
+fn counted(n: usize, one: &str, many: &str) -> String {
+    format!("{} {}", thousands(n), if n == 1 { one } else { many })
 }
 
 fn human_bytes(n: u64) -> String {
