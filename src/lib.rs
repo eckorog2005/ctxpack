@@ -3,6 +3,7 @@ pub mod config;
 pub mod encoder;
 pub mod formatter;
 pub mod parser;
+pub mod redact;
 pub mod report;
 pub mod scanner;
 
@@ -36,6 +37,13 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
     let started = Instant::now();
     let tokenizer = opts.tokenizer;
     let warm = std::thread::spawn(move || Encoder::get(tokenizer));
+    if !opts.redact {
+        writeln!(
+            io.stderr,
+            "warning: Redaction is disabled by --no-redact; secrets in Source Files reach the Bundle"
+        )
+        .context("cannot write a warning to stderr")?;
+    }
     let scan = scanner::scan(&opts)?;
     for (display, skip) in &scan.skipped {
         if let Skip::Unreadable(kind) = skip {
@@ -45,11 +53,20 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
     }
     let mut texts = Vec::with_capacity(scan.candidates.len());
     let mut read_bytes = Vec::with_capacity(scan.candidates.len());
+    let mut redactions = Vec::with_capacity(scan.candidates.len());
     for candidate in &scan.candidates {
         let bytes = std::fs::read(&candidate.path)
             .with_context(|| format!("cannot read `{}`", candidate.display))?;
         read_bytes.push(bytes.len() as u64);
-        texts.push(String::from_utf8_lossy(&bytes).into_owned());
+        let raw = String::from_utf8_lossy(&bytes);
+        if opts.redact {
+            let redacted = redact::redact(&raw, redact::Rules::builtin());
+            redactions.push(redacted.hits.len());
+            texts.push(redacted.text.into_owned());
+        } else {
+            redactions.push(0);
+            texts.push(raw.into_owned());
+        }
     }
     let encoder = warm.join().expect("encoder initialisation panicked");
     let blocks: Vec<FileBlock> = scan
@@ -83,7 +100,8 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
             files: blocks
                 .iter()
                 .zip(&read_bytes)
-                .map(|(b, &original_bytes)| FileStat {
+                .zip(&redactions)
+                .map(|((b, &original_bytes), &redactions)| FileStat {
                     display: b.display.to_string(),
                     lang: b.lang,
                     mode: b.mode,
@@ -91,6 +109,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
                     original_tokens: b.tokens,
                     compressed_bytes: b.text.len() as u64,
                     compressed_tokens: b.tokens,
+                    redactions,
                 })
                 .collect(),
             skipped: scan.skipped,

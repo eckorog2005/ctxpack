@@ -32,6 +32,10 @@ pub struct CliArgs {
     #[arg(long)]
     pub allow_secret_file: bool,
 
+    /// Disable Redaction of secret-looking values; always warns on stderr
+    #[arg(long)]
+    pub no_redact: bool,
+
     /// Omit the File Tree from the Bundle
     #[arg(long)]
     pub no_tree: bool,
