@@ -293,7 +293,7 @@ credentials  credentials.json  *credentials*.json  service-account*.json
 *.tfstate  *.tfstate.backup  *.kdbx  .htpasswd
 ```
 
-Order of checks per candidate: **Exclusion first**, then ignore files, then filters. A `!` re-include in `.gitignore` or a matching `--include` therefore cannot admit an Excluded file. Admission requires both conditions: the exact path is a CLI argument (not discovered by walking) *and* `--allow-secret-file` is set. Excluded files appear in the Report by count only ("3 files excluded as secrets"), and with paths under `--report json`.
+Exclusion is checked independently of ignore files and filters, and before a candidate is ever opened, so a `!` re-include in `.gitignore` or a matching `--include` cannot admit an Excluded file. Admission requires both conditions: the exact path is a CLI argument (not discovered by walking) *and* `--allow-secret-file` is set. Excluded files appear in the Report by count only ("3 skipped (3 secrets)"), and with paths under `--report json`.
 
 ### 7.2 Redaction (`redact`)
 
@@ -364,7 +364,7 @@ pub struct ScanResult {
 pub fn scan(opts: &Options) -> ScanResult;
 ```
 
-Implementation uses `ignore::WalkBuilder` (`.gitignore`, `.ignore`, global gitignore, and `.pithignore` via `add_custom_ignore_filename`) with `build_parallel()`. Hidden files are walked (so `.github/` is included) but `.git/` itself is always skipped. Binary sniff reads the first 8 KiB and looks for a NUL byte with `memchr`.
+Implementation uses `ignore::WalkBuilder` (`.gitignore`, `.ignore`, global gitignore, and `.pithignore` via `add_custom_ignore_filename`) with `build_parallel()`. Hidden files are walked (so `.github/` is included) but `.git/` itself is always skipped. `-i` maps to `ignore` types and `-e` to `!`-prefixed overrides rooted at each walked directory, so neither can admit a file an ignore file hides. As in ripgrep, a file named directly on the command line bypasses ignore files and `-i`/`-e`; Exclusion, size and binary checks still apply to it, and its link target is always checked against Exclusion. Binary sniff reads the first 8 KiB and looks for a NUL byte with `memchr`.
 
 ### 8.2 `parser`
 

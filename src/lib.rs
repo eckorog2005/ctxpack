@@ -15,6 +15,7 @@ use config::Options;
 use encoder::Encoder;
 use formatter::{BundleMeta, FileBlock};
 use report::{FileStat, Report, ReportFormat};
+use scanner::Skip;
 
 /// Content passes through uncompressed until the compressor lands, so no Mode is claimed.
 const UNCOMPRESSED: &str = "none";
@@ -36,6 +37,12 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
     let tokenizer = opts.tokenizer;
     let warm = std::thread::spawn(move || Encoder::get(tokenizer));
     let scan = scanner::scan(&opts)?;
+    for (display, skip) in &scan.skipped {
+        if let Skip::Unreadable(kind) = skip {
+            writeln!(io.stderr, "warning: skipped unreadable `{display}`: {kind}")
+                .context("cannot write a warning to stderr")?;
+        }
+    }
     let mut texts = Vec::with_capacity(scan.candidates.len());
     let mut read_bytes = Vec::with_capacity(scan.candidates.len());
     for candidate in &scan.candidates {

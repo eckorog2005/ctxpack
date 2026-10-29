@@ -1,14 +1,6 @@
 mod common;
 
-use common::{fixture, run};
-
-fn file_paths(bundle: &str) -> Vec<&str> {
-    bundle
-        .lines()
-        .filter_map(|l| l.strip_prefix("<file path=\""))
-        .map(|l| l.split('"').next().unwrap())
-        .collect()
-}
+use common::{file_paths, fixture, run};
 
 #[test]
 fn a_gitignore_re_include_does_not_admit_a_secret_file() {
@@ -85,7 +77,7 @@ fn the_report_counts_excluded_files_without_naming_them() {
     let out = run(dir.path(), &["."]);
 
     assert!(
-        out.stderr.contains(" · 2 files excluded as secrets · "),
+        out.stderr.contains(" · 2 skipped (2 secrets) · "),
         "{}",
         out.stderr
     );
@@ -93,12 +85,12 @@ fn the_report_counts_excluded_files_without_naming_them() {
 }
 
 #[test]
-fn the_report_mentions_no_exclusions_when_there_are_none() {
+fn the_report_mentions_no_skips_when_there_are_none() {
     let dir = fixture(&[("a.rs", "")]);
 
     let out = run(dir.path(), &["a.rs"]);
 
-    assert!(!out.stderr.contains("excluded"), "{}", out.stderr);
+    assert!(!out.stderr.contains("skipped"), "{}", out.stderr);
 }
 
 #[test]
@@ -108,5 +100,5 @@ fn a_secret_file_both_named_and_walked_is_admitted_once_and_not_counted() {
     let out = run(dir.path(), &[".", ".env", "--allow-secret-file"]);
 
     assert_eq!(file_paths(&out.stdout), [".env", "a.rs"]);
-    assert!(!out.stderr.contains("excluded"), "{}", out.stderr);
+    assert!(!out.stderr.contains("skipped"), "{}", out.stderr);
 }
