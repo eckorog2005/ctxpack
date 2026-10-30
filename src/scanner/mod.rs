@@ -34,6 +34,17 @@ pub enum Skip {
     Unreadable(std::io::ErrorKind),
 }
 
+impl Skip {
+    pub fn reason(&self) -> &'static str {
+        match self {
+            Skip::Excluded => "excluded",
+            Skip::TooLarge { .. } => "too_large",
+            Skip::Binary => "binary",
+            Skip::Unreadable(_) => "unreadable",
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ScanResult {
     /// Sorted by `display`, without duplicates.
