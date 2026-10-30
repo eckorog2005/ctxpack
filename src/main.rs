@@ -8,6 +8,7 @@ use pithpack::config::{self, ConfigError, Env};
 use pithpack::{Io, Outcome};
 
 fn main() -> ExitCode {
+    pithpack::sink::run_as_clipboard_holder();
     let cli = CliArgs::parse();
     match try_main(cli) {
         Ok(Outcome::Ok) => ExitCode::SUCCESS,

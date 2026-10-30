@@ -94,6 +94,14 @@ pub struct CliArgs {
     #[arg(long, value_name = "TOKENS")]
     pub budget: Option<usize>,
 
+    /// Write the Bundle to this file instead of stdout
+    #[arg(short, long, value_name = "FILE", conflicts_with = "clipboard")]
+    pub output: Option<PathBuf>,
+
+    /// Copy the Bundle to the clipboard instead of stdout
+    #[arg(short = 'c', long)]
+    pub clipboard: bool,
+
     /// Same as `--report none`
     #[arg(short, long)]
     pub quiet: bool,
