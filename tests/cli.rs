@@ -221,3 +221,26 @@ fn an_unknown_mode_is_a_usage_error() {
         .assert()
         .code(2);
 }
+
+#[test]
+fn init_creates_pithpack_toml_then_exits_1_without_overwriting() {
+    let dir = fixture(&[]);
+    let home = tempfile::tempdir().unwrap();
+
+    pithpack(dir.path(), home.path())
+        .arg("init")
+        .assert()
+        .code(0);
+    let created = std::fs::read_to_string(dir.path().join("pithpack.toml")).unwrap();
+
+    std::fs::write(dir.path().join("pithpack.toml"), "tree = false\n").unwrap();
+    pithpack(dir.path(), home.path())
+        .arg("init")
+        .assert()
+        .code(1);
+    assert!(created.contains("mode"));
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("pithpack.toml")).unwrap(),
+        "tree = false\n"
+    );
+}

@@ -353,6 +353,41 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
     })
 }
 
+const INIT_TEMPLATE: &str = r#"# pithpack.toml: every key is optional; values shown are the defaults.
+# CLI flags override this file, which overrides the user config.
+
+mode            = "skeleton"   # "strip" | "skeleton" | "outline"
+format          = "xml"        # "xml" | "markdown"
+tokenizer       = "o200k"      # "o200k" | "cl100k"
+tree            = true
+docs            = true
+max_file_size   = "1MiB"       # bytes, or with KiB/MiB suffix
+follow_symlinks = false
+
+# include = ["rs", "py", "ts"]                          # only these extensions; default is all
+# exclude = ["target/**", "**/*.snap", "vendor/**"]     # gitignore-style globs
+# budget  = 120000                                      # warn and exit 3 above this many tokens
+
+# [exclusion]
+# extra = ["*.tfstate", "secrets/**"]   # added to the built-in secret-file list
+
+# [redaction]
+# extra_patterns = [
+#   { kind = "internal-token", regex = "itk_[A-Za-z0-9]{32}" },
+# ]
+"#;
+
+/// Writes `pithpack.toml` into `dir`, refusing to touch an existing one.
+pub fn init(dir: &Path) -> std::io::Result<PathBuf> {
+    let path = dir.join("pithpack.toml");
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)?;
+    std::io::Write::write_all(&mut file, INIT_TEMPLATE.as_bytes())?;
+    Ok(path)
+}
+
 /// Joins `path`'s components with `/` on every OS, dropping `.` components.
 pub(crate) fn display_path(path: &Path) -> String {
     let mut out = String::new();

@@ -253,3 +253,25 @@ fn an_invalid_extra_pattern_regex_is_an_error_naming_the_pattern() {
 
     assert!(err.to_string().contains("broken-kind"), "{err}");
 }
+
+#[test]
+fn init_writes_a_config_that_resolves_to_the_defaults() {
+    let dir = fixture(&[]);
+    let path = config::init(dir.path()).unwrap();
+    assert_eq!(path, dir.path().join("pithpack.toml"));
+
+    let with_file = resolve_with(dir.path(), None, &["."]).unwrap();
+    let defaults = resolve_with(dir.path(), None, &[".", "--no-config"]).unwrap();
+    assert_eq!(format!("{with_file:?}"), format!("{defaults:?}"));
+}
+
+#[test]
+fn init_refuses_to_overwrite_an_existing_config() {
+    let dir = fixture(&[("pithpack.toml", "tree = false\n")]);
+    let err = config::init(dir.path()).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::AlreadyExists);
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("pithpack.toml")).unwrap(),
+        "tree = false\n"
+    );
+}
