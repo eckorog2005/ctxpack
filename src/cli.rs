@@ -90,6 +90,10 @@ pub struct CliArgs {
     #[arg(long, value_enum)]
     pub report: Option<ReportFormat>,
 
+    /// Warn and exit 3 when the Bundle exceeds this many tokens
+    #[arg(long, value_name = "TOKENS")]
+    pub budget: Option<usize>,
+
     /// Same as `--report none`
     #[arg(short, long)]
     pub quiet: bool,

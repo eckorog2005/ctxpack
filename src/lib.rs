@@ -31,6 +31,19 @@ pub struct Io<'a> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     Ok,
+    OverBudget,
+}
+
+fn group_thousands(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
 }
 
 pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
@@ -133,5 +146,17 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
             .write_all(report::render_table(&report, io.stderr_is_tty).as_bytes())
             .context("cannot write the Report to stderr")?;
     }
-    Ok(Outcome::Ok)
+    match opts.budget {
+        Some(budget) if meta.tokens > budget => {
+            writeln!(
+                io.stderr,
+                "warning: bundle is {} tokens, budget {}",
+                group_thousands(meta.tokens),
+                group_thousands(budget)
+            )
+            .context("cannot write a warning to stderr")?;
+            Ok(Outcome::OverBudget)
+        }
+        _ => Ok(Outcome::Ok),
+    }
 }
