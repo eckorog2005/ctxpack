@@ -58,6 +58,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
         )
         .context("cannot write a warning to stderr")?;
     }
+    let rules = redact::Rules::with_extra(&opts.redaction_extra)?;
     let scan = scanner::scan(&opts)?;
     for (display, skip) in &scan.skipped {
         if let Skip::Unreadable(kind) = skip {
@@ -82,7 +83,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
         read_bytes.push(bytes.len() as u64);
         let raw = String::from_utf8_lossy(&bytes);
         if opts.redact {
-            let redacted = redact::redact(&raw, redact::Rules::builtin());
+            let redacted = redact::redact(&raw, &rules);
             redactions.push(redacted.hits.len());
             texts.push(redacted.text.into_owned());
         } else {

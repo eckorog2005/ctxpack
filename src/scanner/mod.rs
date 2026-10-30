@@ -84,9 +84,10 @@ pub fn scan(opts: &Options) -> anyhow::Result<ScanResult> {
     found.sort_by(|a, b| (&a.display, a.origin).cmp(&(&b.display, b.origin)));
     found.dedup_by(|a, b| a.display == b.display);
 
+    let exclusion = exclusion::Exclusion::with_extra(&opts.exclusion_extra)?;
     let mut candidates = Vec::with_capacity(found.len());
     for candidate in found {
-        match admit(&candidate, opts) {
+        match admit(&candidate, opts, &exclusion) {
             Ok(()) => candidates.push(candidate),
             Err(skip) => skipped.push((candidate.display, skip)),
         }
@@ -99,17 +100,21 @@ pub fn scan(opts: &Options) -> anyhow::Result<ScanResult> {
 }
 
 /// Exclusion comes first so that a secret file is never opened.
-fn admit(candidate: &Candidate, opts: &Options) -> Result<(), Skip> {
+fn admit(
+    candidate: &Candidate,
+    opts: &Options,
+    exclusion: &exclusion::Exclusion,
+) -> Result<(), Skip> {
     if candidate.origin == Origin::Stdin {
         return Ok(());
     }
     let secret_allowed = candidate.origin == Origin::Explicit && opts.allow_secret_file;
     // Explicit arguments are always followed, so their link targets are checked too.
     let followed = candidate.origin == Origin::Explicit || opts.filter.follow_symlinks;
-    let excluded = exclusion::is_excluded(&candidate.path)
+    let excluded = exclusion.is_excluded(&candidate.path)
         || followed
             && std::fs::canonicalize(&candidate.path)
-                .is_ok_and(|target| exclusion::is_excluded(&target));
+                .is_ok_and(|target| exclusion.is_excluded(&target));
     if excluded && !secret_allowed {
         return Err(Skip::Excluded);
     }

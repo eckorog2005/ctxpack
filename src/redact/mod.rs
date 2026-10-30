@@ -6,34 +6,83 @@ use std::sync::LazyLock;
 
 use regex::{Regex, RegexSet};
 
+#[derive(Debug)]
 pub struct Rules {
     set: RegexSet,
-    rules: Vec<(&'static rules::Rule, Regex)>,
+    rules: Vec<CompiledRule>,
 }
+
+#[derive(Debug)]
+struct CompiledRule {
+    kind: Cow<'static, str>,
+    regex: Regex,
+    accept: fn(&str) -> bool,
+}
+
+/// A config-supplied Redaction rule.
+#[derive(Debug, Clone)]
+pub struct PatternSpec {
+    pub kind: String,
+    pub regex: String,
+}
+
+#[derive(Debug)]
+pub struct InvalidPattern {
+    pub kind: String,
+    pub source: regex::Error,
+}
+
+impl std::fmt::Display for InvalidPattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "invalid redaction pattern `{}`: {}",
+            self.kind, self.source
+        )
+    }
+}
+
+impl std::error::Error for InvalidPattern {}
 
 impl Rules {
     pub fn builtin() -> &'static Rules {
-        static BUILTIN: LazyLock<Rules> = LazyLock::new(|| {
-            let patterns = rules::BUILTIN.iter().map(|r| r.pattern);
-            Rules {
-                set: RegexSet::new(patterns).expect("built-in Redaction rules are valid"),
-                rules: rules::BUILTIN
-                    .iter()
-                    .map(|r| {
-                        let regex =
-                            Regex::new(r.pattern).expect("built-in Redaction rules are valid");
-                        (r, regex)
-                    })
-                    .collect(),
-            }
-        });
+        static BUILTIN: LazyLock<Rules> =
+            LazyLock::new(|| Rules::with_extra(&[]).expect("built-in Redaction rules are valid"));
         &BUILTIN
+    }
+
+    /// The built-in rules followed by `extra`; built-ins win where spans overlap.
+    pub fn with_extra(extra: &[PatternSpec]) -> Result<Rules, InvalidPattern> {
+        let compile = |kind: Cow<'static, str>, pattern: &str, accept| {
+            Regex::new(pattern)
+                .map(|regex| CompiledRule {
+                    kind: kind.clone(),
+                    regex,
+                    accept,
+                })
+                .map_err(|source| InvalidPattern {
+                    kind: kind.into_owned(),
+                    source,
+                })
+        };
+        let mut rules = Vec::new();
+        for r in rules::BUILTIN {
+            rules.push(compile(Cow::Borrowed(r.kind), r.pattern, r.accept)?);
+        }
+        for spec in extra {
+            rules.push(compile(Cow::Owned(spec.kind.clone()), &spec.regex, |_| {
+                true
+            })?);
+        }
+        let set = RegexSet::new(rules.iter().map(|r| r.regex.as_str()))
+            .expect("every pattern compiled on its own");
+        Ok(Rules { set, rules })
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct RedactionHit {
-    pub kind: &'static str,
+    pub kind: Cow<'static, str>,
     /// Byte range of the secret in the original text.
     pub range: Range<usize>,
 }
@@ -46,7 +95,7 @@ pub struct Redacted<'a> {
 pub fn redact<'a>(text: &'a str, rules: &Rules) -> Redacted<'a> {
     let mut hits = Vec::new();
     for i in rules.set.matches(text).iter() {
-        let (rule, regex) = &rules.rules[i];
+        let CompiledRule { regex, accept, .. } = &rules.rules[i];
         for caps in regex.captures_iter(text) {
             let span = caps
                 .iter()
@@ -54,7 +103,7 @@ pub fn redact<'a>(text: &'a str, rules: &Rules) -> Redacted<'a> {
                 .flatten()
                 .next()
                 .unwrap_or_else(|| caps.get(0).unwrap());
-            if (rule.accept)(span.as_str()) {
+            if accept(span.as_str()) {
                 hits.push((i, span.range()));
             }
         }
@@ -68,7 +117,7 @@ pub fn redact<'a>(text: &'a str, rules: &Rules) -> Redacted<'a> {
                 last.range.end = last.range.end.max(range.end);
             }
             _ => merged.push(RedactionHit {
-                kind: rules.rules[rule].0.kind,
+                kind: rules.rules[rule].kind.clone(),
                 range,
             }),
         }

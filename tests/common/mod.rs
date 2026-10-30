@@ -52,11 +52,16 @@ pub fn run_with_stdin(cwd: &Path, args: &[&str], stdin: &str) -> Run {
 }
 
 fn run_full(cwd: &Path, args: &[&str], mut stdin: &[u8], stderr_is_tty: bool) -> Run {
-    let cli =
-        CliArgs::try_parse_from(std::iter::once("pithpack").chain(args.iter().copied())).unwrap();
+    let cli = CliArgs::try_parse_from(
+        ["pithpack", "--no-config"]
+            .into_iter()
+            .chain(args.iter().copied()),
+    )
+    .unwrap();
     let env = Env {
         cwd: cwd.to_path_buf(),
         stdin_is_tty: false,
+        config_dir: None,
     };
     let opts = config::resolve(cli, &env).unwrap();
     let mut stdout = Vec::new();

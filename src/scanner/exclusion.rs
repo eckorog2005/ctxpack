@@ -37,21 +37,40 @@ const SECRET_FILES: &[&str] = &[
     ".htpasswd",
 ];
 
-// Anchoring each glob as `**/<glob>` against the whole path catches path-based entries such as
-// `.docker/config.json` even when the walk starts inside `.docker/`.
-static BUILTIN: LazyLock<GlobSet> = LazyLock::new(|| {
+fn compile(globs: impl IntoIterator<Item = impl AsRef<str>>) -> Result<GlobSet, globset::Error> {
+    // Anchoring each glob as `**/<glob>` against the whole path catches path-based entries such as
+    // `.docker/config.json` even when the walk starts inside `.docker/`.
     let mut set = GlobSetBuilder::new();
-    for glob in SECRET_FILES {
+    for glob in globs {
         set.add(
-            GlobBuilder::new(&format!("**/{glob}"))
+            GlobBuilder::new(&format!("**/{}", glob.as_ref()))
                 .case_insensitive(true)
                 .literal_separator(true)
-                .build()
-                .expect("built-in Exclusion globs are valid"),
+                .build()?,
         );
     }
-    set.build().expect("built-in Exclusion globs are valid")
-});
+    set.build()
+}
+
+static BUILTIN: LazyLock<GlobSet> =
+    LazyLock::new(|| compile(SECRET_FILES).expect("built-in Exclusion globs are valid"));
+
+/// The built-in list plus config-supplied globs; nothing can be removed from the list.
+pub struct Exclusion {
+    extra: GlobSet,
+}
+
+impl Exclusion {
+    pub fn with_extra(extra: &[String]) -> Result<Exclusion, globset::Error> {
+        Ok(Exclusion {
+            extra: compile(extra)?,
+        })
+    }
+
+    pub fn is_excluded(&self, path: &Path) -> bool {
+        is_excluded(path) || self.extra.is_match(path)
+    }
+}
 
 pub fn is_excluded(path: &Path) -> bool {
     BUILTIN.is_match(path)

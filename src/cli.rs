@@ -102,6 +102,14 @@ pub struct CliArgs {
     #[arg(short = 'c', long, visible_alias = "clip")]
     pub clipboard: bool,
 
+    /// Use this project config instead of searching for `pithpack.toml`
+    #[arg(long, value_name = "FILE", conflicts_with = "no_config")]
+    pub config: Option<PathBuf>,
+
+    /// Ignore all config files
+    #[arg(long)]
+    pub no_config: bool,
+
     /// Same as `--report none`
     #[arg(short, long)]
     pub quiet: bool,
@@ -121,7 +129,7 @@ fn parse_lang(name: &str) -> Result<Language, String> {
     })
 }
 
-fn parse_size(size: &str) -> Result<u64, String> {
+pub(crate) fn parse_size(size: &str) -> Result<u64, String> {
     let (digits, unit) = if let Some(n) = size.strip_suffix("MiB") {
         (n, 1024 * 1024)
     } else if let Some(n) = size.strip_suffix("KiB") {
