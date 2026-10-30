@@ -5,6 +5,7 @@ use crate::cli::CliArgs;
 use crate::encoder::TokenizerKind;
 use crate::parser::Language;
 use crate::report::ReportFormat;
+use crate::sink::SinkKind;
 
 /// The process environment `resolve` depends on, injected so it can be faked in tests.
 pub struct Env {
@@ -54,6 +55,7 @@ pub struct Options {
     pub tree: bool,
     pub tokenizer: TokenizerKind,
     pub report: ReportFormat,
+    pub sink: SinkKind,
 }
 
 #[derive(Debug)]
@@ -108,6 +110,11 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
         redact: !cli.no_redact,
         tree: !cli.no_tree,
         tokenizer: cli.tokenizer.unwrap_or(TokenizerKind::O200k),
+        sink: match (cli.output, cli.clipboard) {
+            (Some(path), _) => SinkKind::File(env.cwd.join(path)),
+            (None, true) => SinkKind::Clipboard,
+            (None, false) => SinkKind::Stdout,
+        },
         report: if cli.quiet {
             ReportFormat::None
         } else {

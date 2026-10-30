@@ -6,6 +6,7 @@ pub mod parser;
 pub mod redact;
 pub mod report;
 pub mod scanner;
+pub mod sink;
 
 use std::io::{Read, Write};
 use std::time::Instant;
@@ -101,10 +102,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
     // The total sits inside the text it counts; the re-render's digits may shift it by ±2.
     meta.tokens = encoder.count(&formatter::render(&meta, &blocks));
     let bundle = formatter::render(&meta, &blocks);
-    io.stdout
-        .write_all(bundle.as_bytes())
-        .context("cannot write the Bundle to stdout")?;
-    io.stdout.flush()?;
+    sink::write(&opts.sink, &bundle, io.stdout)?;
 
     if opts.report == ReportFormat::Table {
         let report = Report {
