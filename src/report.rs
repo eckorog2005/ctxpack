@@ -27,6 +27,7 @@ pub struct Report {
     pub bundle_tokens: usize,
     pub tokenizer: &'static str,
     pub elapsed: Duration,
+    pub budget: Option<usize>,
 }
 
 pub fn render_json(r: &Report) -> String {
@@ -53,15 +54,18 @@ pub fn render_json(r: &Report) -> String {
         .iter()
         .map(|(path, skip)| json!({"path": path, "reason": skip.reason()}))
         .collect();
-    let mut out = serde_json::to_string_pretty(&json!({
+    let mut doc = json!({
         "schema": 1,
         "tokenizer": r.tokenizer,
         "bundle_tokens": r.bundle_tokens,
         "elapsed_ms": r.elapsed.as_millis() as u64,
         "files": files,
         "skipped": skipped,
-    }))
-    .expect("a JSON value always serializes");
+    });
+    if let Some(limit) = r.budget {
+        doc["budget"] = json!({"limit": limit, "exceeded": r.bundle_tokens > limit});
+    }
+    let mut out = serde_json::to_string_pretty(&doc).expect("a JSON value always serializes");
     out.push('\n');
     out
 }
@@ -314,6 +318,7 @@ mod tests {
             skipped: Vec::new(),
             bundle_tokens: 1834,
             tokenizer: "o200k_base",
+            budget: None,
             elapsed: Duration::from_millis(41),
         }
     }

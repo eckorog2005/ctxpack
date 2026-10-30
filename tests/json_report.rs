@@ -69,3 +69,14 @@ fn redactions_are_counted_but_no_secret_value_appears() {
     let v: Value = serde_json::from_str(&out.stderr).unwrap();
     assert_eq!(v["files"][0]["redactions"], 1);
 }
+
+#[test]
+fn an_exceeded_budget_keeps_stderr_valid_json() {
+    let dir = fixture(&[("a.txt", "hello world\n")]);
+    let out = run(dir.path(), &["a.txt", "--report", "json", "--budget", "1"]);
+
+    assert!(matches!(out.outcome, Ok(pithpack::Outcome::OverBudget)));
+    let v: Value = serde_json::from_str(&out.stderr).unwrap();
+    assert_eq!(v["budget"]["limit"], 1);
+    assert_eq!(v["budget"]["exceeded"], true);
+}

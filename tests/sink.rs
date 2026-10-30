@@ -94,3 +94,42 @@ fn clipboard_and_output_file_are_mutually_exclusive() {
         .assert()
         .code(2);
 }
+
+#[cfg(unix)]
+#[test]
+fn output_file_is_created_with_the_default_permissions_not_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = fixture(&[("src/lib.rs", "pub fn a() {}\n")]);
+    let probe = dir.path().join("probe");
+    std::fs::write(&probe, "").unwrap();
+    let default_mode = std::fs::metadata(&probe).unwrap().permissions().mode();
+
+    run(dir.path(), &["src", "-q", "-o", "ctx.xml"])
+        .outcome
+        .unwrap();
+
+    let mode = std::fs::metadata(dir.path().join("ctx.xml"))
+        .unwrap()
+        .permissions()
+        .mode();
+    assert_eq!(mode, default_mode);
+}
+
+#[test]
+fn clip_is_accepted_as_the_long_name_of_c() {
+    let dir = fixture(&[("a.txt", "x\n")]);
+    let hook = dir.path().join("clip.txt");
+
+    pithpack(dir.path())
+        .env("PITHPACK_CLIPBOARD", format!("file:{}", hook.display()))
+        .args(["a.txt", "-q", "--clip"])
+        .assert()
+        .success()
+        .stdout("");
+
+    assert!(
+        std::fs::read_to_string(hook)
+            .unwrap()
+            .starts_with("<bundle ")
+    );
+}

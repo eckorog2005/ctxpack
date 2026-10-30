@@ -139,6 +139,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
             bundle_tokens: meta.tokens,
             tokenizer: encoder.name(),
             elapsed: started.elapsed(),
+            budget: opts.budget,
         };
         let rendered = match opts.report {
             ReportFormat::Json => report::render_json(&report),
@@ -150,13 +151,15 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
     }
     match opts.budget {
         Some(budget) if meta.tokens > budget => {
-            writeln!(
-                io.stderr,
-                "warning: bundle is {} tokens, budget {}",
-                group_thousands(meta.tokens),
-                group_thousands(budget)
-            )
-            .context("cannot write a warning to stderr")?;
+            if opts.report != ReportFormat::Json {
+                writeln!(
+                    io.stderr,
+                    "warning: bundle is {} tokens, budget {}",
+                    group_thousands(meta.tokens),
+                    group_thousands(budget)
+                )
+                .context("cannot write a warning to stderr")?;
+            }
             Ok(Outcome::OverBudget)
         }
         _ => Ok(Outcome::Ok),

@@ -39,11 +39,18 @@ fn write_atomically(path: &Path, bundle: &str) -> std::io::Result<()> {
         Some(parent) if !parent.as_os_str().is_empty() => parent,
         _ => Path::new("."),
     };
-    let mut tmp = tempfile::Builder::new()
-        .prefix(".pithpack-")
-        .tempfile_in(dir)?;
-    tmp.write_all(bundle.as_bytes())?;
-    tmp.persist(path).map_err(|err| err.error)?;
+    // Not `tempfile`: it creates 0600 files, which would leak into the renamed target.
+    let tmp = dir.join(format!(".pithpack-{}.tmp", std::process::id()));
+    let written = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&tmp)
+        .and_then(|mut f| f.write_all(bundle.as_bytes()))
+        .and_then(|()| std::fs::rename(&tmp, path));
+    if written.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    written?;
     Ok(())
 }
 

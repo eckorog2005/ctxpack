@@ -99,7 +99,7 @@ pub struct CliArgs {
     pub output: Option<PathBuf>,
 
     /// Copy the Bundle to the clipboard instead of stdout
-    #[arg(short = 'c', long)]
+    #[arg(short = 'c', long, visible_alias = "clip")]
     pub clipboard: bool,
 
     /// Same as `--report none`
