@@ -238,3 +238,67 @@ fn the_report_counts_bytes_as_read_not_as_decoded() {
         out.stderr
     );
 }
+
+#[test]
+fn markdown_format_emits_a_heading_and_fenced_block_per_file() {
+    let dir = fixture(&[("src/lib.rs", "pub fn a() {}\n")]);
+
+    let out = run(dir.path(), &["src", "--format", "markdown"]);
+
+    assert!(out.outcome.is_ok());
+    assert!(
+        out.stdout.starts_with("# pithpack bundle\n"),
+        "{}",
+        out.stdout
+    );
+    assert!(
+        out.stdout
+            .contains("\n## File tree\n\n```text\nsrc/\n  lib.rs\n```\n")
+    );
+    assert!(
+        out.stdout.ends_with(
+            "\n## src/lib.rs\n\nmode: none · tokens: 5\n\n```rust\npub fn a() {}\n```\n"
+        ),
+        "{}",
+        out.stdout
+    );
+}
+
+#[test]
+fn markdown_format_fences_files_that_contain_fences_with_a_longer_fence() {
+    let dir = fixture(&[("README.md", "```sh\nls\n```\n")]);
+
+    let out = run(dir.path(), &["README.md", "-f", "markdown", "--no-tree"]);
+
+    assert!(
+        out.stdout.contains("````text\n```sh\nls\n```\n````\n"),
+        "{}",
+        out.stdout
+    );
+}
+
+#[test]
+fn markdown_format_omits_the_tree_with_no_tree() {
+    let dir = fixture(&[("a.txt", "x\n")]);
+
+    let out = run(dir.path(), &["a.txt", "-f", "markdown", "--no-tree"]);
+
+    assert!(!out.stdout.contains("File tree"));
+}
+
+#[test]
+fn markdown_header_counts_the_whole_bundle_and_output_is_deterministic() {
+    let dir = fixture(&[("a.txt", "hello world\n"), ("b.txt", "bye\n")]);
+
+    let first = run(dir.path(), &[".", "-f", "markdown"]).stdout;
+    let second = run(dir.path(), &[".", "-f", "markdown"]).stdout;
+
+    assert_eq!(first, second);
+    let tokens: usize = first
+        .lines()
+        .find_map(|l| l.strip_prefix("- tokens: "))
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(tokens > 6, "wrappers count: {tokens}");
+}

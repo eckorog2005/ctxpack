@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 
 use crate::encoder::TokenizerKind;
+use crate::formatter::Format;
 use crate::parser::Language;
 use crate::report::ReportFormat;
 
@@ -39,6 +40,10 @@ pub struct CliArgs {
     /// Language of stdin, for labelling; without it stdin is Plain Text
     #[arg(long, value_name = "LANG", value_parser = parse_lang)]
     pub lang: Option<Language>,
+
+    /// Bundle format [default: xml]
+    #[arg(short, long, value_enum)]
+    pub format: Option<Format>,
 
     /// Omit the File Tree from the Bundle
     #[arg(long)]

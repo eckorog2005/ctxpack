@@ -93,6 +93,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
         })
         .collect();
     let mut meta = BundleMeta {
+        format: opts.format,
         mode: UNCOMPRESSED,
         tokenizer: encoder.name(),
         tokens: 0,

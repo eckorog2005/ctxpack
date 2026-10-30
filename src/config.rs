@@ -3,6 +3,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::cli::CliArgs;
 use crate::encoder::TokenizerKind;
+use crate::formatter::Format;
 use crate::parser::Language;
 use crate::report::ReportFormat;
 
@@ -51,6 +52,7 @@ pub struct Options {
     pub stdin_lang: Option<Language>,
     /// Only the CLI can turn this off; no config key may.
     pub redact: bool,
+    pub format: Format,
     pub tree: bool,
     pub tokenizer: TokenizerKind,
     pub report: ReportFormat,
@@ -106,6 +108,7 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
         allow_secret_file: cli.allow_secret_file,
         stdin_lang: cli.lang,
         redact: !cli.no_redact,
+        format: cli.format.unwrap_or(Format::Xml),
         tree: !cli.no_tree,
         tokenizer: cli.tokenizer.unwrap_or(TokenizerKind::O200k),
         report: if cli.quiet {
