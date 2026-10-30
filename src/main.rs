@@ -11,6 +11,7 @@ fn main() -> ExitCode {
     let cli = CliArgs::parse();
     match try_main(cli) {
         Ok(Outcome::Ok) => ExitCode::SUCCESS,
+        Ok(Outcome::OverBudget) => ExitCode::from(3),
         Err(err) if matches!(err.downcast_ref(), Some(ConfigError::NoInput)) => CliArgs::command()
             .error(ErrorKind::MissingRequiredArgument, err)
             .exit(),

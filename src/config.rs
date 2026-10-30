@@ -54,6 +54,7 @@ pub struct Options {
     pub tree: bool,
     pub tokenizer: TokenizerKind,
     pub report: ReportFormat,
+    pub budget: Option<usize>,
 }
 
 #[derive(Debug)]
@@ -108,6 +109,7 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
         redact: !cli.no_redact,
         tree: !cli.no_tree,
         tokenizer: cli.tokenizer.unwrap_or(TokenizerKind::O200k),
+        budget: cli.budget,
         report: if cli.quiet {
             ReportFormat::None
         } else {
