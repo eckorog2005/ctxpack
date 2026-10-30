@@ -1,6 +1,7 @@
 use std::io::IsTerminal;
 use std::process::ExitCode;
 
+use anyhow::Context;
 use clap::error::ErrorKind;
 use clap::{CommandFactory, Parser};
 use pithpack::cli::CliArgs;
@@ -24,6 +25,11 @@ fn main() -> ExitCode {
 }
 
 fn try_main(cli: CliArgs) -> anyhow::Result<Outcome> {
+    if cli.command.is_some() {
+        let path = config::init(&std::env::current_dir()?).context("cannot write pithpack.toml")?;
+        eprintln!("created {}", path.display());
+        return Ok(Outcome::Ok);
+    }
     let env = Env::from_process()?;
     let opts = config::resolve(cli, &env)?;
     let stderr = std::io::stderr();

@@ -14,9 +14,23 @@ pub enum ModeArg {
     Outline,
 }
 
+#[derive(clap::Subcommand, Debug)]
+pub enum Command {
+    /// Write a commented `pithpack.toml` in the current directory
+    Init,
+}
+
 #[derive(Parser, Debug)]
-#[command(name = "pithpack", version, about)]
+#[command(
+    name = "pithpack",
+    version,
+    about,
+    args_conflicts_with_subcommands = true
+)]
 pub struct CliArgs {
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
     /// Files or directories to bundle; `-` reads stdin, as does giving none with stdin piped
     pub paths: Vec<PathBuf>,
 
