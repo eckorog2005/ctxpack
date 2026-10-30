@@ -63,6 +63,7 @@ fn no_paths_with_a_terminal_on_stdin_is_an_error_instead_of_waiting_for_input() 
     let env = Env {
         cwd: std::env::temp_dir(),
         stdin_is_tty: true,
+        config_dir: None,
     };
 
     let err = config::resolve(cli, &env).unwrap_err();
