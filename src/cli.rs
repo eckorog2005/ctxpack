@@ -6,6 +6,13 @@ use crate::encoder::TokenizerKind;
 use crate::parser::Language;
 use crate::report::ReportFormat;
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum ModeArg {
+    Strip,
+    Skeleton,
+    Outline,
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "pithpack", version, about)]
 pub struct CliArgs {
@@ -39,6 +46,32 @@ pub struct CliArgs {
     /// Language of stdin, for labelling; without it stdin is Plain Text
     #[arg(long, value_name = "LANG", value_parser = parse_lang)]
     pub lang: Option<Language>,
+
+    /// Mode; accepted but not applied yet, so output is labelled `none` [default: skeleton]
+    #[arg(
+        short,
+        long,
+        value_enum,
+        value_name = "MODE",
+        conflicts_with_all = ["strip", "skeleton", "outline"]
+    )]
+    pub mode: Option<ModeArg>,
+
+    /// Alias for `--mode strip`
+    #[arg(short = '0', conflicts_with_all = ["skeleton", "outline"])]
+    pub strip: bool,
+
+    /// Alias for `--mode skeleton`
+    #[arg(short = '1', conflicts_with = "outline")]
+    pub skeleton: bool,
+
+    /// Alias for `--mode outline`
+    #[arg(short = '2')]
+    pub outline: bool,
+
+    /// Also drop Doc Comments; a no-op until compression lands
+    #[arg(long)]
+    pub no_docs: bool,
 
     /// Omit the File Tree from the Bundle
     #[arg(long)]
