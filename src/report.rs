@@ -6,6 +6,7 @@ use crate::scanner::Skip;
 #[derive(Clone, Copy, PartialEq, Eq, Debug, clap::ValueEnum)]
 pub enum ReportFormat {
     Table,
+    Json,
     None,
 }
 
@@ -26,6 +27,47 @@ pub struct Report {
     pub bundle_tokens: usize,
     pub tokenizer: &'static str,
     pub elapsed: Duration,
+    pub budget: Option<usize>,
+}
+
+pub fn render_json(r: &Report) -> String {
+    use serde_json::json;
+    let files: Vec<_> = r
+        .files
+        .iter()
+        .map(|f| {
+            json!({
+                "path": f.display,
+                "lang": parser::lang_name(f.lang),
+                "requested_mode": f.mode,
+                "effective_mode": f.mode,
+                "original_bytes": f.original_bytes,
+                "original_tokens": f.original_tokens,
+                "compressed_bytes": f.compressed_bytes,
+                "compressed_tokens": f.compressed_tokens,
+                "redactions": f.redactions,
+            })
+        })
+        .collect();
+    let skipped: Vec<_> = r
+        .skipped
+        .iter()
+        .map(|(path, skip)| json!({"path": path, "reason": skip.reason()}))
+        .collect();
+    let mut doc = json!({
+        "schema": 1,
+        "tokenizer": r.tokenizer,
+        "bundle_tokens": r.bundle_tokens,
+        "elapsed_ms": r.elapsed.as_millis() as u64,
+        "files": files,
+        "skipped": skipped,
+    });
+    if let Some(limit) = r.budget {
+        doc["budget"] = json!({"limit": limit, "exceeded": r.bundle_tokens > limit});
+    }
+    let mut out = serde_json::to_string_pretty(&doc).expect("a JSON value always serializes");
+    out.push('\n');
+    out
 }
 
 const DIM: &str = "\x1b[2m";
@@ -276,6 +318,7 @@ mod tests {
             skipped: Vec::new(),
             bundle_tokens: 1834,
             tokenizer: "o200k_base",
+            budget: None,
             elapsed: Duration::from_millis(41),
         }
     }

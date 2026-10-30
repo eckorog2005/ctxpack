@@ -157,3 +157,67 @@ fn an_unknown_lang_is_a_usage_error() {
         .stdout("")
         .stderr(predicate::str::contains("--lang"));
 }
+
+#[test]
+fn every_mode_flag_is_labelled_none_in_bundle_and_report_with_no_savings() {
+    let dir = fixture(&[("a.rs", "// c\npub fn a() {}\n")]);
+    let home = tempfile::tempdir().unwrap();
+
+    for flags in [
+        &["-m", "strip"][..],
+        &["--mode", "skeleton"],
+        &["-m", "outline"],
+        &["-0"],
+        &["-1"],
+        &["-2"],
+        &["--no-docs"],
+        &["-2", "--no-docs"],
+    ] {
+        pithpack(dir.path(), home.path())
+            .args(flags)
+            .arg("a.rs")
+            .assert()
+            .code(0)
+            .stdout(
+                predicate::str::contains(" mode=\"none\" tokens=\"")
+                    .and(predicate::str::contains("mode=\"skeleton\"").not())
+                    .and(predicate::str::contains("mode=\"outline\"").not())
+                    .and(predicate::str::contains("mode=\"strip\"").not()),
+            )
+            .stderr(
+                predicate::str::contains(" none ")
+                    .and(predicate::str::contains("0.0%"))
+                    .and(predicate::str::contains("skeleton").not()),
+            );
+    }
+}
+
+#[test]
+fn conflicting_mode_flags_are_a_usage_error() {
+    let dir = fixture(&[("a.rs", "pub fn a() {}\n")]);
+    let home = tempfile::tempdir().unwrap();
+
+    for flags in [
+        &["-0", "-1"][..],
+        &["-1", "-m", "outline"],
+        &["-m", "strip", "-2"],
+    ] {
+        pithpack(dir.path(), home.path())
+            .args(flags)
+            .arg("a.rs")
+            .assert()
+            .code(2)
+            .stdout("");
+    }
+}
+
+#[test]
+fn an_unknown_mode_is_a_usage_error() {
+    let dir = fixture(&[("a.rs", "pub fn a() {}\n")]);
+    let home = tempfile::tempdir().unwrap();
+
+    pithpack(dir.path(), home.path())
+        .args(["-m", "huge", "a.rs"])
+        .assert()
+        .code(2);
+}

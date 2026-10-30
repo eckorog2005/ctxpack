@@ -6,6 +6,7 @@ pub mod parser;
 pub mod redact;
 pub mod report;
 pub mod scanner;
+pub mod sink;
 
 use std::io::{Read, Write};
 use std::time::Instant;
@@ -31,6 +32,19 @@ pub struct Io<'a> {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     Ok,
+    OverBudget,
+}
+
+fn group_thousands(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
 }
 
 pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
@@ -102,12 +116,9 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
     // The total sits inside the text it counts; the re-render's digits may shift it by ±2.
     meta.tokens = encoder.count(&formatter::render(&meta, &blocks));
     let bundle = formatter::render(&meta, &blocks);
-    io.stdout
-        .write_all(bundle.as_bytes())
-        .context("cannot write the Bundle to stdout")?;
-    io.stdout.flush()?;
+    sink::write(&opts.sink, &bundle, io.stdout)?;
 
-    if opts.report == ReportFormat::Table {
+    if opts.report != ReportFormat::None {
         let report = Report {
             files: blocks
                 .iter()
@@ -128,10 +139,29 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
             bundle_tokens: meta.tokens,
             tokenizer: encoder.name(),
             elapsed: started.elapsed(),
+            budget: opts.budget,
+        };
+        let rendered = match opts.report {
+            ReportFormat::Json => report::render_json(&report),
+            _ => report::render_table(&report, io.stderr_is_tty),
         };
         io.stderr
-            .write_all(report::render_table(&report, io.stderr_is_tty).as_bytes())
+            .write_all(rendered.as_bytes())
             .context("cannot write the Report to stderr")?;
     }
-    Ok(Outcome::Ok)
+    match opts.budget {
+        Some(budget) if meta.tokens > budget => {
+            if opts.report != ReportFormat::Json {
+                writeln!(
+                    io.stderr,
+                    "warning: bundle is {} tokens, budget {}",
+                    group_thousands(meta.tokens),
+                    group_thousands(budget)
+                )
+                .context("cannot write a warning to stderr")?;
+            }
+            Ok(Outcome::OverBudget)
+        }
+        _ => Ok(Outcome::Ok),
+    }
 }

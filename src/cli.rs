@@ -7,6 +7,13 @@ use crate::formatter::Format;
 use crate::parser::Language;
 use crate::report::ReportFormat;
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum ModeArg {
+    Strip,
+    Skeleton,
+    Outline,
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "pithpack", version, about)]
 pub struct CliArgs {
@@ -45,6 +52,32 @@ pub struct CliArgs {
     #[arg(short, long, value_enum)]
     pub format: Option<Format>,
 
+    /// Mode; accepted but not applied yet, so output is labelled `none` [default: skeleton]
+    #[arg(
+        short,
+        long,
+        value_enum,
+        value_name = "MODE",
+        conflicts_with_all = ["strip", "skeleton", "outline"]
+    )]
+    pub mode: Option<ModeArg>,
+
+    /// Alias for `--mode strip`
+    #[arg(short = '0', conflicts_with_all = ["skeleton", "outline"])]
+    pub strip: bool,
+
+    /// Alias for `--mode skeleton`
+    #[arg(short = '1', conflicts_with = "outline")]
+    pub skeleton: bool,
+
+    /// Alias for `--mode outline`
+    #[arg(short = '2')]
+    pub outline: bool,
+
+    /// Also drop Doc Comments; a no-op until compression lands
+    #[arg(long)]
+    pub no_docs: bool,
+
     /// Omit the File Tree from the Bundle
     #[arg(long)]
     pub no_tree: bool,
@@ -56,6 +89,18 @@ pub struct CliArgs {
     /// Report format on stderr [default: table]
     #[arg(long, value_enum)]
     pub report: Option<ReportFormat>,
+
+    /// Warn and exit 3 when the Bundle exceeds this many tokens
+    #[arg(long, value_name = "TOKENS")]
+    pub budget: Option<usize>,
+
+    /// Write the Bundle to this file instead of stdout
+    #[arg(short, long, value_name = "FILE", conflicts_with = "clipboard")]
+    pub output: Option<PathBuf>,
+
+    /// Copy the Bundle to the clipboard instead of stdout
+    #[arg(short = 'c', long, visible_alias = "clip")]
+    pub clipboard: bool,
 
     /// Same as `--report none`
     #[arg(short, long)]
