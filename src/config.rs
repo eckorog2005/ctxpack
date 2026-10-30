@@ -355,6 +355,7 @@ pub fn resolve(cli: CliArgs, env: &Env) -> Result<Options, ConfigError> {
 
 const INIT_TEMPLATE: &str = r#"# pithpack.toml: every key is optional; values shown are the defaults.
 # CLI flags override this file, which overrides the user config.
+# `mode` and `docs` are accepted but not applied until compression lands.
 
 mode            = "skeleton"   # "strip" | "skeleton" | "outline"
 format          = "xml"        # "xml" | "markdown"
@@ -384,7 +385,11 @@ pub fn init(dir: &Path) -> std::io::Result<PathBuf> {
         .write(true)
         .create_new(true)
         .open(&path)?;
-    std::io::Write::write_all(&mut file, INIT_TEMPLATE.as_bytes())?;
+    if let Err(err) = std::io::Write::write_all(&mut file, INIT_TEMPLATE.as_bytes()) {
+        // A truncated file would block both re-running init and loading the config.
+        let _ = std::fs::remove_file(&path);
+        return Err(err);
+    }
     Ok(path)
 }
 
