@@ -106,7 +106,7 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
         .context("cannot write the Bundle to stdout")?;
     io.stdout.flush()?;
 
-    if opts.report == ReportFormat::Table {
+    if opts.report != ReportFormat::None {
         let report = Report {
             files: blocks
                 .iter()
@@ -128,8 +128,12 @@ pub fn run(opts: Options, io: Io) -> anyhow::Result<Outcome> {
             tokenizer: encoder.name(),
             elapsed: started.elapsed(),
         };
+        let rendered = match opts.report {
+            ReportFormat::Json => report::render_json(&report),
+            _ => report::render_table(&report, io.stderr_is_tty),
+        };
         io.stderr
-            .write_all(report::render_table(&report, io.stderr_is_tty).as_bytes())
+            .write_all(rendered.as_bytes())
             .context("cannot write the Report to stderr")?;
     }
     Ok(Outcome::Ok)
