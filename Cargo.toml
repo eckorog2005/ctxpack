@@ -6,6 +6,7 @@ rust-version = "1.85"
 description = "Compress codebases into token-lean context bundles for LLMs"
 license = "MIT"
 repository = "https://github.com/eckorog2005/pithpack"
+homepage = "https://github.com/eckorog2005/pithpack"
 readme = "README.md"
 keywords = ["llm", "context", "tokens", "tree-sitter", "cli"]
 categories = ["command-line-utilities", "development-tools"]
@@ -27,6 +28,9 @@ toml = "1.1.8"
 lto = "thin"
 codegen-units = 1
 strip = true
+
+[profile.dist]
+inherits = "release"
 
 [dev-dependencies]
 assert_cmd = "2.2.2"
